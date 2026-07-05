@@ -1470,6 +1470,46 @@ const T = {
     ar: "رقم الإيصال",
     en: "Receipt No"
   },
+  noPermission: {
+    ar: "ما عندك صلاحية لهذا الإجراء",
+    en: "You don't have permission for this action"
+  },
+  backupOverdueNote: {
+    ar: "مر وقت طويل من آخر نسخة احتياطية — يُفضّل تصدير نسخة جديدة الآن",
+    en: "It's been a while since your last backup — it's recommended to export a new one now"
+  },
+  noBackupYetNote: {
+    ar: "ما صدّرت أي نسخة احتياطية بعد — يُفضّل تصدير واحدة الآن للحماية",
+    en: "You haven't exported a backup yet — it's recommended to export one now for safety"
+  },
+  lastBackup: {
+    ar: "آخر نسخة احتياطية",
+    en: "Last backup"
+  },
+  today: {
+    ar: "اليوم",
+    en: "today"
+  },
+  daysAgo: {
+    ar: "يوم مضى",
+    en: "days ago"
+  },
+  restoreBackup: {
+    ar: "استعادة من نسخة احتياطية",
+    en: "Restore from Backup"
+  },
+  restoreBackupNote: {
+    ar: "استعادة نسخة احتياطية تستبدل كل بياناتك الحالية بمحتوى الملف المرفوع — لا يمكن التراجع عن هذا.",
+    en: "Restoring a backup replaces all your current data with the uploaded file's content — this cannot be undone."
+  },
+  restoreBackupConfirm: {
+    ar: "تحذير: استعادة النسخة الاحتياطية ستستبدل كل بياناتك الحالية بمحتوى هذا الملف بشكل نهائي. متأكد تبي تكمل؟",
+    en: "Warning: Restoring this backup will permanently replace all your current data with this file's content. Are you sure you want to continue?"
+  },
+  restoreSuccess: {
+    ar: "تمت الاستعادة بنجاح",
+    en: "Restore successful"
+  },
   carriedFromPreviousContract: {
     ar: "مرحّل من العقد السابق",
     en: "Carried from previous contract"
@@ -1716,6 +1756,27 @@ const monthLabel = (mk, lang) => {
 const SUPABASE_URL = "https://dozuxujcidzxldoaervh.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Rarypeh-pcE05Tum0oCcBQ_HVvd1hvb";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function derivePassword(pin) {
+  return `Aq_${pin}_9k2!`;
+}
+async function callManageUserFunction(payload) {
+  const {
+    data: sessionData
+  } = await sb.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-team-user`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "request_failed");
+  return json;
+}
 const TABLES = {
   users: {
     table: "app_users",
@@ -1723,13 +1784,15 @@ const TABLES = {
       id: u.id,
       name: u.name,
       pin: u.pin,
-      role: u.role
+      role: u.role,
+      auth_user_id: u.authUserId || null
     }),
     toJs: r => ({
       id: r.id,
       name: r.name,
       pin: r.pin,
-      role: r.role
+      role: r.role,
+      authUserId: r.auth_user_id
     })
   },
   properties: {
@@ -2245,7 +2308,7 @@ function DialogHost({
     theme: theme,
     variant: "danger",
     onClick: () => onConfirmResult(true)
-  }, t("delete")), /*#__PURE__*/React.createElement(Btn, {
+  }, confirmState.confirmLabel || t("delete")), /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     variant: "outline",
     onClick: () => onConfirmResult(false)
@@ -2582,6 +2645,7 @@ function printWithTemplate(title, imageDataUrl, fields, values) {
 
 function App() {
   const [loaded, setLoaded] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [lang, setLang] = useState("ar");
   const [themeKey, setThemeKey] = useState("turquoise");
   const [session, setSession] = useState(emptySession);
@@ -2589,9 +2653,10 @@ function App() {
   const [revenuePrefill, setRevenuePrefill] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const [alertState, setAlertState] = useState(null);
-  const confirmFn = useCallback(message => new Promise(resolve => {
+  const confirmFn = useCallback((message, confirmLabel) => new Promise(resolve => {
     setConfirmState({
       message,
+      confirmLabel,
       resolve
     });
   }), []);
@@ -2624,18 +2689,38 @@ function App() {
   }, []);
   useEffect(() => {
     (async () => {
-      const [u, p, un, tn, ct, rv, ex, es, ds, tpl, ci] = await Promise.all([loadAllFromTable("users"), loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo")]);
-      let finalUsers = u;
-      if (!finalUsers || finalUsers.length === 0) {
-        finalUsers = [{
-          id: uid(),
-          name: "Admin",
-          pin: "1234",
-          role: "manager"
-        }];
-        await syncTableDiff("users", [], finalUsers);
-      }
-      setUsers(finalUsers);
+      const u = await loadAllFromTable("users");
+      setUsers(u || []);
+      try {
+        const prefsRaw = localStorage.getItem("aqaray_prefs");
+        const prefs = prefsRaw ? JSON.parse(prefsRaw) : null;
+        if (prefs) {
+          setLang(prefs.lang || "ar");
+          setThemeKey(THEMES[prefs.theme] ? prefs.theme : "turquoise");
+        }
+      } catch (e) {}
+      // Restore an existing valid login session (e.g. after a page refresh) instead of forcing re-login
+      try {
+        const {
+          data
+        } = await sb.auth.getSession();
+        if (data?.session) {
+          const matchedUser = (u || []).find(x => x.authUserId === data.session.user.id);
+          if (matchedUser) setSession({
+            user: matchedUser
+          });
+        }
+      } catch (e) {}
+      setLoaded(true);
+    })();
+  }, []);
+  useEffect(() => {
+    if (!session.user) {
+      setDataLoaded(false);
+      return;
+    }
+    (async () => {
+      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo")]);
       setProperties(p);
       setUnits(un);
       setTenants(tn);
@@ -2646,17 +2731,9 @@ function App() {
       setDepositSettlements(ds);
       setTemplates(tpl);
       setCompanyInfo(ci);
-      try {
-        const prefsRaw = localStorage.getItem("aqaray_prefs");
-        const prefs = prefsRaw ? JSON.parse(prefsRaw) : null;
-        if (prefs) {
-          setLang(prefs.lang || "ar");
-          setThemeKey(THEMES[prefs.theme] ? prefs.theme : "turquoise");
-        }
-      } catch (e) {}
-      setLoaded(true);
+      setDataLoaded(true);
     })();
-  }, []);
+  }, [session.user]);
   useEffect(() => {
     if (!loaded) return;
     try {
@@ -2714,6 +2791,18 @@ function App() {
         user: u
       })
     });
+  }
+  if (!dataLoaded) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center",
+      style: {
+        background: theme.bg
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: theme.textSoft
+      }
+    }, t("loading")));
   }
   const GROUPS = [{
     key: "dashboard",
@@ -2815,6 +2904,7 @@ function App() {
     updUsers,
     updTemplates,
     updCompanyInfo,
+    setUsers,
     setTab,
     revenuePrefill,
     setRevenuePrefill
@@ -2831,6 +2921,31 @@ function App() {
       fontFamily: "'Nunito', Tahoma, Arial, sans-serif"
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: "md:hidden flex items-center justify-between px-4 py-3 sticky top-0 z-30",
+    style: {
+      background: theme.surface,
+      borderBottom: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-semibold"
+  }, session.user.name), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px]",
+    style: {
+      color: theme.textSoft
+    }
+  }, t(session.user.role))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      sb.auth.signOut();
+      setSession(emptySession);
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium",
+    style: {
+      background: theme.primarySoft,
+      color: theme.primaryDark
+    }
+  }, /*#__PURE__*/React.createElement(LogOut, {
+    size: 14
+  }), t("logout"))), /*#__PURE__*/React.createElement("div", {
     className: "flex min-h-screen"
   }, /*#__PURE__*/React.createElement("aside", {
     className: "w-60 shrink-0 hidden md:flex flex-col",
@@ -2905,7 +3020,10 @@ function App() {
       color: theme.textSoft
     }
   }, t(session.user.role))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setSession(emptySession),
+    onClick: () => {
+      sb.auth.signOut();
+      setSession(emptySession);
+    },
     className: "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium",
     style: {
       background: theme.primarySoft,
@@ -2962,18 +3080,29 @@ function App() {
       elecSettlements,
       depositSettlements,
       users,
-      templates
+      templates,
+      companyInfo
     },
     properties: properties,
     units: units,
     tenants: tenants,
     contracts: contracts,
     revenues: revenues,
+    expenses: expenses,
+    elecSettlements: elecSettlements,
+    depositSettlements: depositSettlements,
+    templates: templates,
+    users: users,
     updProperties: updProperties,
     updUnits: updUnits,
     updTenants: updTenants,
     updContracts: updContracts,
     updRevenues: updRevenues,
+    updExpenses: updExpenses,
+    updElec: updElec,
+    updDeposits: updDeposits,
+    updTemplates: updTemplates,
+    setUsers: setUsers,
     companyInfo: companyInfo,
     updCompanyInfo: updCompanyInfo,
     currentUser: session.user
@@ -3004,13 +3133,34 @@ function LoginScreen({
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
-  const submit = () => {
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
     const u = users.find(x => x.id === userId);
-    if (!u || u.pin !== pin) {
+    if (!u) {
       setError(t("wrongPin"));
       return;
     }
-    onLogin(u);
+    setBusy(true);
+    setError("");
+    try {
+      const email = `${u.id}@aqaray.internal`;
+      const {
+        error: authErr
+      } = await sb.auth.signInWithPassword({
+        email,
+        password: derivePassword(pin)
+      });
+      if (authErr) {
+        setError(t("wrongPin"));
+        setBusy(false);
+        return;
+      }
+      onLogin(u);
+    } catch (e) {
+      setError(t("wrongPin"));
+    } finally {
+      setBusy(false);
+    }
   };
   const onPinKeyDown = e => {
     if (e.key === "Enter") submit();
@@ -3090,11 +3240,13 @@ function LoginScreen({
   }, error), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: submit,
+    disabled: busy,
     className: "w-full rounded-xl py-2.5 font-semibold text-white mt-2",
     style: {
-      background: theme.primary
+      background: theme.primary,
+      opacity: busy ? 0.6 : 1
     }
-  }, t("enter"))), /*#__PURE__*/React.createElement("button", {
+  }, busy ? t("loading") : t("enter"))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setLang(lang === "ar" ? "en" : "ar"),
     className: "w-full text-center text-sm mt-4",
     style: {
@@ -7714,7 +7866,7 @@ function UsersScreen({
   theme,
   t,
   users,
-  updUsers
+  setUsers
 }) {
   const {
     confirm,
@@ -7722,27 +7874,59 @@ function UsersScreen({
   } = useDialogs();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const save = data => {
-    if (editing) {
-      updUsers(prev => prev.map(u => u.id === editing.id ? {
-        ...u,
-        ...data
-      } : u));
-    } else {
-      updUsers(prev => [...prev, {
-        id: uid(),
-        ...data
-      }]);
+  const [busy, setBusy] = useState(false);
+  const save = async data => {
+    setBusy(true);
+    try {
+      if (editing) {
+        await callManageUserFunction({
+          action: "update",
+          id: editing.id,
+          authUserId: editing.authUserId,
+          name: data.name,
+          pin: data.pin,
+          role: data.role
+        });
+        setUsers(prev => prev.map(u => u.id === editing.id ? {
+          ...u,
+          ...data
+        } : u));
+      } else {
+        const created = await callManageUserFunction({
+          action: "create",
+          name: data.name,
+          pin: data.pin,
+          role: data.role
+        });
+        setUsers(prev => [...prev, created]);
+      }
+      setShowModal(false);
+      setEditing(null);
+    } catch (e) {
+      notify(e.message === "Forbidden: manager only" ? t("noPermission") : t("noData"));
+    } finally {
+      setBusy(false);
     }
-    setShowModal(false);
-    setEditing(null);
   };
-  const del = async id => {
+  const del = async u => {
     if (users.length <= 1) {
       notify(t("noData"));
       return;
     }
-    if (await confirm(t("confirmDelete"))) updUsers(prev => prev.filter(u => u.id !== id));
+    if (!(await confirm(t("confirmDelete")))) return;
+    setBusy(true);
+    try {
+      await callManageUserFunction({
+        action: "delete",
+        id: u.id,
+        authUserId: u.authUserId
+      });
+      setUsers(prev => prev.filter(x => x.id !== u.id));
+    } catch (e) {
+      notify(t("noData"));
+    } finally {
+      setBusy(false);
+    }
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-5"
@@ -7753,7 +7937,8 @@ function UsersScreen({
     onClick: () => {
       setEditing(null);
       setShowModal(true);
-    }
+    },
+    disabled: busy
   }, /*#__PURE__*/React.createElement(Plus, {
     size: 16
   }), t("addUser"))), /*#__PURE__*/React.createElement("div", {
@@ -7789,15 +7974,17 @@ function UsersScreen({
     style: {
       color: theme.textSoft
     },
-    title: t("edit")
+    title: t("edit"),
+    disabled: busy
   }, /*#__PURE__*/React.createElement(Edit2, {
     size: 15
   })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => del(u.id),
+    onClick: () => del(u),
     style: {
       color: theme.danger
     },
-    title: t("delete")
+    title: t("delete"),
+    disabled: busy
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 15
   })))))), showModal && /*#__PURE__*/React.createElement(UserFormModal, {
@@ -7808,7 +7995,8 @@ function UsersScreen({
       setShowModal(false);
       setEditing(null);
     },
-    onSave: save
+    onSave: save,
+    busy: busy
   }));
 }
 function UserFormModal({
@@ -7816,7 +8004,8 @@ function UserFormModal({
   t,
   initial,
   onClose,
-  onSave
+  onSave,
+  busy
 }) {
   const [form, setForm] = useState(initial ? {
     name: initial.name,
@@ -7864,13 +8053,15 @@ function UserFormModal({
     className: "flex gap-2 mt-3"
   }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
-    onClick: () => form.name && form.pin && onSave(form)
+    onClick: () => form.name && form.pin && onSave(form),
+    disabled: busy
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
-  }), t("save")), /*#__PURE__*/React.createElement(Btn, {
+  }), busy ? t("loading") : t("save")), /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     variant: "outline",
-    onClick: onClose
+    onClick: onClose,
+    disabled: busy
   }, t("cancel"))));
 }
 
@@ -7890,17 +8081,28 @@ function SettingsScreen({
   tenants,
   contracts,
   revenues,
+  expenses,
+  elecSettlements,
+  depositSettlements,
+  templates,
+  users,
   updProperties,
   updUnits,
   updTenants,
   updContracts,
   updRevenues,
+  updExpenses,
+  updElec,
+  updDeposits,
+  updTemplates,
   currentUser,
   companyInfo,
-  updCompanyInfo
+  updCompanyInfo,
+  setUsers
 }) {
   const {
-    notify
+    notify,
+    confirm
   } = useDialogs();
   const [importSummary, setImportSummary] = useState(null);
   const [showImportGuide, setShowImportGuide] = useState(false);
@@ -7914,6 +8116,16 @@ function SettingsScreen({
     swiftBic: existingCompanyInfo.swiftBic || ""
   });
   const [companySaved, setCompanySaved] = useState(false);
+  const [lastBackupDate, setLastBackupDate] = useState(() => {
+    try {
+      return localStorage.getItem("aqaray_last_backup");
+    } catch (e) {
+      return null;
+    }
+  });
+  const [restoreSummary, setRestoreSummary] = useState(null);
+  const daysSinceBackup = lastBackupDate ? daysBetween(todayISO(), lastBackupDate) : null;
+  const backupOverdue = daysSinceBackup === null || daysSinceBackup >= 14;
   useEffect(() => {
     if (companyInfo && companyInfo[0]) {
       setCompanyForm({
@@ -7949,10 +8161,104 @@ function SettingsScreen({
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     Object.entries(allData).forEach(([name, rows]) => {
-      const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+      const safeRows = (rows.length ? rows : [{}]).map(row => {
+        const copy = {
+          ...row
+        };
+        Object.keys(copy).forEach(k => {
+          if (copy[k] && typeof copy[k] === "object") copy[k] = JSON.stringify(copy[k]);
+        });
+        return copy;
+      });
+      const sheet = XLSX.utils.json_to_sheet(safeRows);
       XLSX.utils.book_append_sheet(wb, sheet, name.slice(0, 31));
     });
     XLSX.writeFile(wb, `aqaray_backup_${todayISO()}.xlsx`);
+    try {
+      localStorage.setItem("aqaray_last_backup", todayISO());
+    } catch (e) {}
+    setLastBackupDate(todayISO());
+  };
+  const restoreFromBackup = file => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        const wb = XLSX.read(e.target.result, {
+          type: "array"
+        });
+        const sheetJson = name => {
+          const ws = wb.Sheets[name];
+          if (!ws) return null;
+          return XLSX.utils.sheet_to_json(ws, {
+            defval: ""
+          }).map(row => {
+            const copy = {
+              ...row
+            };
+            Object.keys(copy).forEach(k => {
+              if (typeof copy[k] === "string" && (copy[k].startsWith("{") || copy[k].startsWith("["))) {
+                try {
+                  copy[k] = JSON.parse(copy[k]);
+                } catch (e2) {}
+              }
+            });
+            return copy;
+          });
+        };
+        const restored = {
+          properties: sheetJson("properties"),
+          units: sheetJson("units"),
+          tenants: sheetJson("tenants"),
+          contracts: sheetJson("contracts"),
+          revenues: sheetJson("revenues"),
+          expenses: sheetJson("expenses"),
+          elecSettlements: sheetJson("elecSettlements"),
+          depositSettlements: sheetJson("depositSettlements"),
+          templates: sheetJson("templates"),
+          companyInfo: sheetJson("companyInfo")
+        };
+        if (restored.properties) updProperties(() => restored.properties);
+        if (restored.units) updUnits(() => restored.units);
+        if (restored.tenants) updTenants(() => restored.tenants);
+        if (restored.contracts) updContracts(() => restored.contracts);
+        if (restored.revenues) updRevenues(() => restored.revenues);
+        if (restored.expenses) updExpenses(() => restored.expenses);
+        if (restored.elecSettlements) updElec(() => restored.elecSettlements);
+        if (restored.depositSettlements) updDeposits(() => restored.depositSettlements);
+        if (restored.templates) updTemplates(() => restored.templates);
+        if (restored.companyInfo) updCompanyInfo(() => restored.companyInfo);
+
+        // users need real login accounts recreated via the secure edge function — skip ones that already exist by name
+        const backedUpUsers = sheetJson("users") || [];
+        let usersRecreated = 0;
+        for (const u of backedUpUsers) {
+          if (users.some(x => x.name === u.name)) continue;
+          try {
+            const created = await callManageUserFunction({
+              action: "create",
+              name: u.name,
+              pin: u.pin,
+              role: u.role
+            });
+            setUsers(prev => [...prev, created]);
+            usersRecreated += 1;
+          } catch (e3) {/* ignore individual failures, e.g. duplicate */}
+        }
+        setRestoreSummary({
+          properties: (restored.properties || []).length,
+          units: (restored.units || []).length,
+          tenants: (restored.tenants || []).length,
+          contracts: (restored.contracts || []).length,
+          revenues: (restored.revenues || []).length,
+          expenses: (restored.expenses || []).length,
+          usersRecreated
+        });
+      } catch (err) {
+        console.error(err);
+        notify(t("noData"));
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
   const downloadImportTemplate = () => {
     const wb = XLSX.utils.book_new();
@@ -8225,12 +8531,67 @@ function SettingsScreen({
     style: {
       color: theme.textSoft
     }
-  }, t("backupNote")), /*#__PURE__*/React.createElement(Btn, {
+  }, t("backupNote")), backupOverdue ? /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3 mb-3 text-sm",
+    style: {
+      background: theme.warning + "15",
+      border: `1px solid ${theme.warning}55`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: theme.warning
+    }
+  }, lastBackupDate ? `${t("backupOverdueNote")} (${daysSinceBackup} ${t("daysLeft")})` : t("noBackupYetNote"))) : /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mb-3",
+    style: {
+      color: theme.success
+    }
+  }, t("lastBackup"), ": ", lastBackupDate, " (", daysSinceBackup === 0 ? t("today") : `${daysSinceBackup} ${t("daysAgo")}`, ")"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: exportExcel
   }, /*#__PURE__*/React.createElement(Download, {
     size: 16
-  }), t("exportExcel"))), isManager && /*#__PURE__*/React.createElement("div", {
+  }), t("exportExcel")), isManager && /*#__PURE__*/React.createElement("label", {
+    className: "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer",
+    style: {
+      background: theme.primarySoft,
+      color: theme.primaryDark
+    }
+  }, /*#__PURE__*/React.createElement(FileUp, {
+    size: 16
+  }), t("restoreBackup"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    hidden: true,
+    accept: ".xlsx,.xls",
+    onChange: async e => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      if (await confirm(t("restoreBackupConfirm"), t("restoreBackup"))) restoreFromBackup(file);
+    }
+  }))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mt-2",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("restoreBackupNote")), restoreSummary && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3 mt-3 text-sm",
+    style: {
+      background: theme.success + "15",
+      border: `1px solid ${theme.success}55`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-semibold mb-1",
+    style: {
+      color: theme.success
+    }
+  }, t("restoreSuccess")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: theme.textSoft
+    }
+  }, t("properties"), ": ", restoreSummary.properties, " · ", t("units"), ": ", restoreSummary.units, " · ", t("tenants"), ": ", restoreSummary.tenants, " · ", t("contracts"), ": ", restoreSummary.contracts, " · ", t("revenues"), ": ", restoreSummary.revenues, " · ", t("expenses"), ": ", restoreSummary.expenses, " · ", t("usersMgmt"), ": ", restoreSummary.usersRecreated))), isManager && /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
       background: theme.surface,
