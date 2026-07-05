@@ -2,7 +2,7 @@ name: Daily Aqaray Backup to Dropbox
 
 on:
   schedule:
-    - cron: "0 2 * * *" # runs every day at 02:00 UTC
+    - cron: "0 2 */3 * *" # runs every day at 02:00 UTC
   workflow_dispatch: {} # allows manually running it from the Actions tab too
 
 jobs:
