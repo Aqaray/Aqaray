@@ -1382,6 +1382,94 @@ const T = {
     ar: "لو Deposit Paid Amount أقل من Deposit Amount، الفرق يظهر لاحقاً في شاشة تأمين المحتجز كـ\"غير مسدد بعد\".",
     en: "If Deposit Paid Amount is less than Deposit Amount, the difference will show up later in the Security Deposits screen as \"not yet paid\"."
   },
+  ownerSettlement: {
+    ar: "تسوية مالك العقار",
+    en: "Owner Settlement"
+  },
+  ownerSettlementTitle: {
+    ar: "تسوية مالك العقار",
+    en: "Property Owner Settlement"
+  },
+  generateSettlement: {
+    ar: "استخراج التسوية",
+    en: "Generate Settlement"
+  },
+  revenueBreakdown: {
+    ar: "تفصيل الإيرادات",
+    en: "Revenue Breakdown"
+  },
+  expenseBreakdown: {
+    ar: "تفصيل المصاريف",
+    en: "Expense Breakdown"
+  },
+  netProfit: {
+    ar: "صافي الربح",
+    en: "Net Profit"
+  },
+  depositsExcludedNote: {
+    ar: "دفعات ومستردات التأمين مستبعدة من هذا الحساب (فلوس أمانة مو ربح)، عدا خصومات الأضرار وهي تدخل ربح فعلي.",
+    en: "Deposit payments/refunds are excluded from this calculation (trust money, not profit), except damage deductions which count as real profit."
+  },
+  companyInfo: {
+    ar: "معلومات الشركة",
+    en: "Company Information"
+  },
+  companyName: {
+    ar: "اسم الشركة/المكتب",
+    en: "Company / Office Name"
+  },
+  uploadLogo: {
+    ar: "رفع الشعار",
+    en: "Upload Logo"
+  },
+  bankName: {
+    ar: "اسم البنك",
+    en: "Bank Name"
+  },
+  ibanLabel: {
+    ar: "رقم الحساب (IBAN)",
+    en: "Account No (IBAN)"
+  },
+  accountHolder: {
+    ar: "اسم صاحب الحساب",
+    en: "Account Holder Name"
+  },
+  swiftBic: {
+    ar: "رمز البنك (SWIFT/BIC)",
+    en: "SWIFT/BIC Code"
+  },
+  saveCompanyInfo: {
+    ar: "حفظ معلومات الشركة",
+    en: "Save Company Info"
+  },
+  savedSuccessfully2: {
+    ar: "تم الحفظ بنجاح",
+    en: "Saved successfully"
+  },
+  receivedFrom: {
+    ar: "استلمت من",
+    en: "Received From"
+  },
+  regarding: {
+    ar: "وذلك عن",
+    en: "Regarding"
+  },
+  ownerAccountantSignature: {
+    ar: "توقيع المالك/المحاسب",
+    en: "Owner/Accountant Signature"
+  },
+  bankTransferDetails: {
+    ar: "للتحويل البنكي",
+    en: "For Bank Transfer"
+  },
+  invoiceNo: {
+    ar: "رقم الفاتورة",
+    en: "Invoice No"
+  },
+  receiptNo: {
+    ar: "رقم الإيصال",
+    en: "Receipt No"
+  },
   carriedFromPreviousContract: {
     ar: "مرحّل من العقد السابق",
     en: "Carried from previous contract"
@@ -1878,6 +1966,27 @@ const TABLES = {
       fields: r.fields,
       imageData: r.image_data
     })
+  },
+  companyInfo: {
+    table: "company_info",
+    toRow: c => ({
+      id: c.id || "main",
+      company_name: c.companyName || null,
+      logo_data: c.logoData || null,
+      bank_name: c.bankName || null,
+      iban: c.iban || null,
+      account_holder: c.accountHolder || null,
+      swift_bic: c.swiftBic || null
+    }),
+    toJs: r => ({
+      id: r.id,
+      companyName: r.company_name,
+      logoData: r.logo_data,
+      bankName: r.bank_name,
+      iban: r.iban,
+      accountHolder: r.account_holder,
+      swiftBic: r.swift_bic
+    })
   }
 };
 async function loadAllFromTable(key) {
@@ -2236,6 +2345,64 @@ function printHtml(title, bodyHtml, theme) {
   setTimeout(() => window.print(), 80);
 }
 
+/* ============================== DEFAULT DOCUMENT TEMPLATE (invoice / receipt) — always uses the gray theme ============================== */
+
+function printDefaultDocument({
+  docType,
+  docNo,
+  date,
+  lang,
+  t,
+  companyInfo,
+  rows,
+  signatureLabel
+}) {
+  const gray = THEMES.gray;
+  const ci = companyInfo && companyInfo[0] || {};
+  const hasBank = ci.bankName || ci.iban || ci.accountHolder || ci.swiftBic;
+  const rowsHtml = rows.map(([label, value]) => `
+    <tr><th style="width:35%;">${label}</th><td>${value ?? ""}</td></tr>
+  `).join("");
+  const bankHtml = hasBank ? `
+    <div style="margin-top:18px;padding:12px 14px;border:1px solid ${gray.border};border-radius:8px;background:${gray.bg};">
+      <p style="margin:0 0 6px 0;font-weight:700;color:${gray.primaryDark};font-size:12px;">${t("bankTransferDetails")}</p>
+      <p style="margin:2px 0;font-size:12px;">${t("bankName")}: ${ci.bankName || ""} &nbsp;|&nbsp; ${t("ibanLabel")}: ${ci.iban || ""}</p>
+      <p style="margin:2px 0;font-size:12px;">${t("accountHolder")}: ${ci.accountHolder || ""} &nbsp;|&nbsp; ${t("swiftBic")}: ${ci.swiftBic || ""}</p>
+    </div>
+  ` : "";
+  const area = ensurePrintArea();
+  area.innerHTML = `
+    <div style="font-family:'Nunito',Tahoma,Arial,sans-serif;color:${gray.text};padding:20px;max-width:700px;margin:0 auto;">
+      <div style="display:flex;align-items:center;gap:14px;border-bottom:2px solid ${gray.primary};padding-bottom:14px;margin-bottom:16px;">
+        ${ci.logoData ? `<img src="${ci.logoData}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : `<div style="height:56px;width:56px;border:1px dashed ${gray.border};border-radius:8px;"></div>`}
+        <div>
+          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName || (lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري")}</p>
+        </div>
+      </div>
+      <h2 style="margin:0 0 4px 0;font-size:16px;">${title2(docType, t)}</h2>
+      <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${docType === "receipt" ? t("receiptNo") : t("invoiceNo")}: ${docNo || "—"} &nbsp;|&nbsp; ${t("date")}: ${date}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        ${rowsHtml}
+      </table>
+      ${bankHtml}
+      <div style="margin-top:50px;display:flex;justify-content:flex-end;">
+        <div style="text-align:center;">
+          <div style="border-top:1px solid ${gray.text};width:200px;margin-bottom:4px;"></div>
+          <p style="margin:0;font-size:11px;color:${gray.textSoft};">${signatureLabel || t("ownerAccountantSignature")}</p>
+        </div>
+      </div>
+    </div>
+    <style>
+      th { text-align: start; padding: 7px 8px; border: 1px solid ${gray.border}; background: ${gray.primarySoft}; color: ${gray.primaryDark}; }
+      td { text-align: start; padding: 7px 8px; border: 1px solid ${gray.border}; }
+    </style>
+  `;
+  setTimeout(() => window.print(), 80);
+}
+function title2(docType, t) {
+  return docType === "receipt" ? t("printReceipt") : t("rentInvoice");
+}
+
 /* ============================== TEMPLATE PRINTING (upload-a-template feature) ============================== */
 
 const TEMPLATE_DOC_TYPES = [{
@@ -2443,6 +2610,7 @@ function App() {
   const [elecSettlements, setElecSettlements] = useState([]);
   const [depositSettlements, setDepositSettlements] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [companyInfo, setCompanyInfo] = useState([]);
   const t = useT(lang);
   const theme = THEMES[themeKey] || THEMES.turquoise;
   useEffect(() => {
@@ -2456,7 +2624,7 @@ function App() {
   }, []);
   useEffect(() => {
     (async () => {
-      const [u, p, un, tn, ct, rv, ex, es, ds, tpl] = await Promise.all([loadAllFromTable("users"), loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates")]);
+      const [u, p, un, tn, ct, rv, ex, es, ds, tpl, ci] = await Promise.all([loadAllFromTable("users"), loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo")]);
       let finalUsers = u;
       if (!finalUsers || finalUsers.length === 0) {
         finalUsers = [{
@@ -2477,6 +2645,7 @@ function App() {
       setElecSettlements(es);
       setDepositSettlements(ds);
       setTemplates(tpl);
+      setCompanyInfo(ci);
       try {
         const prefsRaw = localStorage.getItem("aqaray_prefs");
         const prefs = prefsRaw ? JSON.parse(prefsRaw) : null;
@@ -2516,6 +2685,7 @@ function App() {
   const updElec = setAndSave(setElecSettlements, "elecSettlements");
   const updDeposits = setAndSave(setDepositSettlements, "depositSettlements");
   const updTemplates = setAndSave(setTemplates, "templates");
+  const updCompanyInfo = setAndSave(setCompanyInfo, "companyInfo");
   const dir = lang === "ar" ? "rtl" : "ltr";
   const isManager = session.user?.role === "manager";
   const cssVars = {
@@ -2604,6 +2774,9 @@ function App() {
       key: "reports",
       label: t("reports")
     }] : []), ...(isManager ? [{
+      key: "ownerSettlement",
+      label: t("ownerSettlement")
+    }] : []), ...(isManager ? [{
       key: "users",
       label: t("usersMgmt")
     }] : []), {
@@ -2630,6 +2803,7 @@ function App() {
     depositSettlements,
     users,
     templates,
+    companyInfo,
     updProperties,
     updUnits,
     updTenants,
@@ -2640,6 +2814,7 @@ function App() {
     updDeposits,
     updUsers,
     updTemplates,
+    updCompanyInfo,
     setTab,
     revenuePrefill,
     setRevenuePrefill
@@ -2769,7 +2944,7 @@ function App() {
       background: tab === c.key ? theme.primary : theme.primarySoft,
       color: tab === c.key ? "#fff" : theme.primaryDark
     }
-  }, c.label))), tab === "dashboard" && isManager && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && isManager && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
+  }, c.label))), tab === "dashboard" && isManager && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && isManager && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && isManager && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
     theme: theme,
     t: t,
     lang: lang,
@@ -2799,6 +2974,8 @@ function App() {
     updTenants: updTenants,
     updContracts: updContracts,
     updRevenues: updRevenues,
+    companyInfo: companyInfo,
+    updCompanyInfo: updCompanyInfo,
     currentUser: session.user
   }))), /*#__PURE__*/React.createElement(DialogHost, {
     theme: theme,
@@ -2955,7 +3132,7 @@ function Dashboard(props) {
     if (propFilter === "all") return null;
     return new Set(units.filter(u => u.propertyId === propFilter).map(u => u.id));
   }, [propFilter, units]);
-  const revFiltered = revenues.filter(r => r.status !== "suspended" && (!filteredUnitIds || filteredUnitIds.has(r.unitId)));
+  const revFiltered = revenues.filter(r => r.status !== "suspended" && (!filteredUnitIds || (r.unitId ? filteredUnitIds.has(r.unitId) : r.propertyId === propFilter)));
   const expFiltered = expenses.filter(e => !filteredUnitIds || (e.unitId ? filteredUnitIds.has(e.unitId) : e.propertyId === propFilter));
   const totalRevenue = revFiltered.reduce((s, r) => s + Number(r.amount || 0), 0);
   const totalExpenses = expFiltered.reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -3853,7 +4030,7 @@ function TenantsScreen(props) {
     }, tn.nationality)), active ? /*#__PURE__*/React.createElement(Badge, {
       theme: theme,
       tone: "success",
-      text: `${t("active")} — ${unit?.unitNo || ""}`
+      text: t("active")
     }) : /*#__PURE__*/React.createElement(Badge, {
       theme: theme,
       tone: "neutral",
@@ -4774,20 +4951,15 @@ function RevenuesScreen(props) {
         return;
       }
     }
-    const html = `
-      <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
-      <h2>${t("printReceipt")}</h2>
-      <table>
-        <tr><th>${t("date")}</th><td>${r.date}</td></tr>
-        ${tenant ? `<tr><th>${t("tenantName")}</th><td>${tenant.name}</td></tr>` : ""}
-        ${property ? `<tr><th>${t("properties")}</th><td>${property.buildingName}${unit ? " — " + unit.unitNo : ""}</td></tr>` : ""}
-        <tr><th>${t("revenueType")}</th><td>${revenueTypeLabel}</td></tr>
-        <tr><th>${t("paymentMethod")}</th><td>${paymentMethodLabel}</td></tr>
-        ${r.notes ? `<tr><th>${t("notes")}</th><td>${r.notes}</td></tr>` : ""}
-      </table>
-      <p class="total">${t("amount")}: ${fmtMoney(r.amount)} BHD</p>
-    `;
-    printHtml(t("printReceipt"), html, theme);
+    printDefaultDocument({
+      docType: "receipt",
+      docNo: r.docNo,
+      date: r.date,
+      lang,
+      t,
+      companyInfo: props.companyInfo,
+      rows: [[t("receivedFrom"), tenant?.name || r.notes || ""], ...(property ? [[t("properties"), `${property.buildingName}${unit ? " — " + unit.unitNo : ""}`]] : []), [t("amount"), fmtMoney(r.amount) + " BHD"], [t("regarding"), revenueTypeLabel], [t("paymentMethod"), paymentMethodLabel], ...(r.notes ? [[t("notes"), r.notes]] : [])]
+    });
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-5"
@@ -6356,28 +6528,66 @@ function DepositsScreen(props) {
     theme: theme,
     text: t("noData")
   }) : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pendingPayment.map(c => {
+    className: "rounded-2xl overflow-hidden",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: theme.primarySoft
+    }
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "p-2.5 text-start"
+  }, t("tenantName")), /*#__PURE__*/React.createElement("th", {
+    className: "p-2.5 text-start"
+  }, t("properties")), /*#__PURE__*/React.createElement("th", {
+    className: "p-2.5 text-start"
+  }, t("unitNo")), /*#__PURE__*/React.createElement("th", {
+    className: "p-2.5 text-start"
+  }, t("depositAmount")), /*#__PURE__*/React.createElement("th", {
+    className: "p-2.5 text-start"
+  }))), /*#__PURE__*/React.createElement("tbody", null, pendingPayment.map(c => {
+    const tn = tenants.find(x => x.id === c.tenantId);
+    const u = units.find(x => x.id === c.unitId);
+    const p = u ? properties.find(x => x.id === u.propertyId) : null;
     const remaining = Number(c.depositAmount || 0) - depositPaidAmount(c.id, revenues);
-    return /*#__PURE__*/React.createElement(Row, {
+    return /*#__PURE__*/React.createElement("tr", {
       key: c.id,
-      c: c,
-      right: () => /*#__PURE__*/React.createElement(Btn, {
-        theme: theme,
-        small: true,
-        variant: "outline",
-        onClick: () => {
-          setRevenuePrefill({
-            contractId: c.id,
-            type: "other",
-            category: "deposit_payment",
-            amount: remaining
-          });
-          setTab("revenues");
-        }
-      }, t("registerDepositPayment"), " (", fmtMoney(remaining), ")")
-    });
-  }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        borderTop: `1px solid ${theme.border}`
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "p-2.5 font-medium"
+    }, tn?.name), /*#__PURE__*/React.createElement("td", {
+      className: "p-2.5"
+    }, p?.buildingName), /*#__PURE__*/React.createElement("td", {
+      className: "p-2.5"
+    }, u?.unitNo), /*#__PURE__*/React.createElement("td", {
+      className: "p-2.5",
+      style: {
+        color: theme.warning,
+        fontWeight: 600
+      }
+    }, fmtMoney(c.depositAmount)), /*#__PURE__*/React.createElement("td", {
+      className: "p-2.5"
+    }, /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "outline",
+      onClick: () => {
+        setRevenuePrefill({
+          contractId: c.id,
+          type: "other",
+          category: "deposit_payment",
+          amount: remaining
+        });
+        setTab("revenues");
+      }
+    }, t("registerDepositPayment"), " (", fmtMoney(remaining), ")")));
+  }))))), /*#__PURE__*/React.createElement("div", {
     className: "mb-6"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold text-sm mb-2",
@@ -6526,7 +6736,8 @@ function FormsScreen(props) {
     revenues,
     templates,
     updTemplates,
-    isManager
+    isManager,
+    companyInfo
   } = props;
   const {
     confirm,
@@ -6563,23 +6774,15 @@ function FormsScreen(props) {
         return;
       }
     }
-    const html = `
-      <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
-      <h2>${t("rentInvoice")} — ${monthLabel(month, lang)}</h2>
-      <div class="meta">
-        <p>${t("tenantName")}: ${tn?.name || ""}</p>
-        <p>${p?.buildingName || ""} — ${t("unitNo")}: ${u?.unitNo || ""}</p>
-        <p>${t("date")}: ${todayISO()}</p>
-      </div>
-      <table>
-        <tr><th>${t("monthPaidFor")}</th><td>${monthLabel(month, lang)}</td></tr>
-        <tr><th>${t("required")}</th><td>${fmtMoney(c.monthlyRent)} BHD</td></tr>
-        <tr><th>${t("paid")}</th><td>${fmtMoney(paid)} BHD</td></tr>
-        <tr><th>${t("remaining")}</th><td>${fmtMoney(Math.max(0, c.monthlyRent - paid))} BHD</td></tr>
-      </table>
-      <p class="total">${t("totalDue")}: ${fmtMoney(Math.max(0, c.monthlyRent - paid))} BHD</p>
-    `;
-    printHtml(t("rentInvoice"), html, theme);
+    printDefaultDocument({
+      docType: "rent_invoice",
+      docNo: nextDocNo("RVN", revenues, todayISO()),
+      date: todayISO(),
+      lang,
+      t,
+      companyInfo,
+      rows: [[t("tenantName"), tn?.name || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("monthPaidFor"), monthLabel(month, lang)], [t("required"), fmtMoney(c.monthlyRent) + " BHD"], [t("paid"), fmtMoney(paid) + " BHD"], [t("remaining"), fmtMoney(Math.max(0, c.monthlyRent - paid)) + " BHD"]]
+    });
   };
   const generateContractDoc = async () => {
     const c = contracts.find(x => x.id === contractDocId);
@@ -7038,9 +7241,14 @@ function ReportsScreen(props) {
   const revF = revenues.filter(r => {
     if (r.status === "suspended") return false;
     if (!inRange(r.date)) return false;
-    const u = units.find(x => x.id === r.unitId);
-    if (propertyId && (!u || u.propertyId !== propertyId)) return false;
-    if (unitId && r.unitId !== unitId) return false;
+    if (r.unitId) {
+      const u = units.find(x => x.id === r.unitId);
+      if (propertyId && (!u || u.propertyId !== propertyId)) return false;
+      if (unitId && r.unitId !== unitId) return false;
+    } else {
+      if (propertyId && r.propertyId !== propertyId) return false;
+      if (unitId) return false; // a specific unit was requested but this revenue has none
+    }
     return true;
   });
   const expF = expenses.filter(e => {
@@ -7062,7 +7270,7 @@ function ReportsScreen(props) {
   })) : [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const byProperty = properties.map(p => {
     const propUnitIds = new Set(units.filter(u => u.propertyId === p.id).map(u => u.id));
-    const rev = revenues.filter(r => r.status !== "suspended" && inRange(r.date) && propUnitIds.has(r.unitId)).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const rev = revenues.filter(r => r.status !== "suspended" && inRange(r.date) && (r.unitId ? propUnitIds.has(r.unitId) : r.propertyId === p.id)).reduce((s, r) => s + Number(r.amount || 0), 0);
     const exp = expenses.filter(e => inRange(e.date) && e.propertyId === p.id).reduce((s, e) => s + Number(e.amount || 0), 0);
     return {
       p,
@@ -7269,6 +7477,237 @@ function ReportsScreen(props) {
   }, fmtMoney(r.net))))))));
 }
 
+/* ============================== OWNER SETTLEMENT ============================== */
+
+function OwnerSettlementScreen(props) {
+  const {
+    theme,
+    t,
+    lang,
+    properties,
+    units,
+    revenues,
+    expenses,
+    companyInfo
+  } = props;
+  const [propertyId, setPropertyId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [result, setResult] = useState(null);
+  const generate = () => {
+    if (!propertyId || !from || !to) return;
+    const propUnitIds = new Set(units.filter(u => u.propertyId === propertyId).map(u => u.id));
+    const inRange = d => d >= from && d <= to;
+    const revF = revenues.filter(r => {
+      if (r.status === "suspended" || !inRange(r.date) || r.category === "deposit_payment") return false;
+      if (r.unitId && propUnitIds.has(r.unitId)) return true;
+      if (!r.unitId && r.propertyId === propertyId) return true;
+      return false;
+    });
+    const expF = expenses.filter(e => inRange(e.date) && e.propertyId === propertyId);
+    const rentTotal = revF.filter(r => r.type === "rent").reduce((s, r) => s + Number(r.amount || 0), 0);
+    const otherByCategory = {};
+    revF.filter(r => r.type === "other").forEach(r => {
+      const key = r.category || "other";
+      otherByCategory[key] = (otherByCategory[key] || 0) + Number(r.amount || 0);
+    });
+    const revenueRows = [{
+      label: t("rentRevenue"),
+      amount: rentTotal
+    }, ...Object.entries(otherByCategory).map(([key, amount]) => {
+      const cat = OTHER_REVENUE_CATEGORIES.find(c => c.key === key);
+      return {
+        label: cat ? cat[lang] : key,
+        amount
+      };
+    })].filter(r => r.amount > 0);
+    const totalRevenue = revenueRows.reduce((s, r) => s + r.amount, 0);
+    const expenseByCategory = {};
+    expF.forEach(e => {
+      const key = e.category || "other";
+      expenseByCategory[key] = (expenseByCategory[key] || 0) + Number(e.amount || 0);
+    });
+    const expenseRows = Object.entries(expenseByCategory).map(([key, amount]) => {
+      const cat = EXPENSE_CATEGORIES.find(c => c.key === key);
+      return {
+        label: cat ? cat[lang] : key,
+        amount
+      };
+    }).filter(r => r.amount > 0);
+    const totalExpenses = expenseRows.reduce((s, r) => s + r.amount, 0);
+    setResult({
+      revenueRows,
+      totalRevenue,
+      expenseRows,
+      totalExpenses,
+      netProfit: totalRevenue - totalExpenses
+    });
+  };
+  const printSettlement = () => {
+    if (!result) return;
+    const p = properties.find(x => x.id === propertyId);
+    const gray = THEMES.gray;
+    const ci = companyInfo && companyInfo[0] || {};
+    const revRowsHtml = result.revenueRows.map(r => `<tr><td>${r.label}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const expRowsHtml = result.expenseRows.map(r => `<tr><td>${r.label}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const area = ensurePrintArea();
+    area.innerHTML = `
+      <div style="font-family:'Nunito',Tahoma,Arial,sans-serif;color:${gray.text};padding:20px;max-width:700px;margin:0 auto;">
+        <div style="display:flex;align-items:center;gap:14px;border-bottom:2px solid ${gray.primary};padding-bottom:14px;margin-bottom:16px;">
+          ${ci.logoData ? `<img src="${ci.logoData}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : ""}
+          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName || (lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري")}</p>
+        </div>
+        <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${p?.buildingName || ""}</h2>
+        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${from} → ${to}</p>
+        <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("revenueBreakdown")}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">${revRowsHtml}</table>
+        <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("expenseBreakdown")}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">${expRowsHtml}</table>
+        <div style="margin-top:18px;padding:12px 14px;border-radius:8px;background:${gray.primarySoft};display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:700;">${t("netProfit")}</span>
+          <span style="font-weight:800;font-size:16px;color:${gray.primaryDark};">${fmtMoney(result.netProfit)} BHD</span>
+        </div>
+        <p style="margin-top:14px;font-size:10px;color:${gray.textSoft};">${t("depositsExcludedNote")}</p>
+      </div>
+      <style>
+        th,td { text-align: start; padding: 7px 8px; border: 1px solid ${gray.border}; }
+      </style>
+    `;
+    setTimeout(() => window.print(), 80);
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-bold mb-5"
+  }, t("ownerSettlementTitle")), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-4 mb-5 grid sm:grid-cols-3 gap-3",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("selectProperty"),
+    required: true
+  }, /*#__PURE__*/React.createElement("select", {
+    style: inputStyle(theme),
+    value: propertyId,
+    onChange: e => {
+      setPropertyId(e.target.value);
+      setResult(null);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "-"), properties.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.buildingName)))), /*#__PURE__*/React.createElement(Field, {
+    label: t("from"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: from,
+    onChange: e => setFrom(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("to"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: to,
+    onChange: e => setTo(e.target.value)
+  }))), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: generate,
+    disabled: !propertyId || !from || !to
+  }, /*#__PURE__*/React.createElement(ClipboardList, {
+    size: 16
+  }), t("generateSettlement")), result && /*#__PURE__*/React.createElement("div", {
+    className: "mt-5 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl overflow-hidden",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-2.5 font-semibold text-sm",
+    style: {
+      background: theme.primarySoft,
+      color: theme.primaryDark
+    }
+  }, t("revenueBreakdown")), /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm"
+  }, /*#__PURE__*/React.createElement("tbody", null, result.revenueRows.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "p-3"
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    theme: theme,
+    text: t("noData")
+  }))) : result.revenueRows.map((r, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i,
+    style: {
+      borderTop: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "p-2.5"
+  }, r.label), /*#__PURE__*/React.createElement("td", {
+    className: "p-2.5 font-medium",
+    style: {
+      color: theme.success
+    }
+  }, fmtMoney(r.amount))))))), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl overflow-hidden",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-2.5 font-semibold text-sm",
+    style: {
+      background: theme.primarySoft,
+      color: theme.primaryDark
+    }
+  }, t("expenseBreakdown")), /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm"
+  }, /*#__PURE__*/React.createElement("tbody", null, result.expenseRows.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "p-3"
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    theme: theme,
+    text: t("noData")
+  }))) : result.expenseRows.map((r, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i,
+    style: {
+      borderTop: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "p-2.5"
+  }, r.label), /*#__PURE__*/React.createElement("td", {
+    className: "p-2.5 font-medium",
+    style: {
+      color: theme.danger
+    }
+  }, fmtMoney(r.amount))))))), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-4 flex items-center justify-between",
+    style: {
+      background: theme.primary,
+      color: "#fff"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold"
+  }, t("netProfit")), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-lg"
+  }, fmtMoney(result.netProfit), " BHD")), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("depositsExcludedNote")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: printSettlement
+  }, /*#__PURE__*/React.createElement(Printer, {
+    size: 16
+  }), t("print"), "/", t("exportPdf"))));
+}
+
 /* ============================== USERS ============================== */
 
 function UsersScreen({
@@ -7456,13 +7895,57 @@ function SettingsScreen({
   updTenants,
   updContracts,
   updRevenues,
-  currentUser
+  currentUser,
+  companyInfo,
+  updCompanyInfo
 }) {
   const {
     notify
   } = useDialogs();
   const [importSummary, setImportSummary] = useState(null);
   const [showImportGuide, setShowImportGuide] = useState(false);
+  const existingCompanyInfo = companyInfo && companyInfo[0] || {};
+  const [companyForm, setCompanyForm] = useState({
+    companyName: existingCompanyInfo.companyName || "",
+    logoData: existingCompanyInfo.logoData || "",
+    bankName: existingCompanyInfo.bankName || "",
+    iban: existingCompanyInfo.iban || "",
+    accountHolder: existingCompanyInfo.accountHolder || "",
+    swiftBic: existingCompanyInfo.swiftBic || ""
+  });
+  const [companySaved, setCompanySaved] = useState(false);
+  useEffect(() => {
+    if (companyInfo && companyInfo[0]) {
+      setCompanyForm({
+        companyName: companyInfo[0].companyName || "",
+        logoData: companyInfo[0].logoData || "",
+        bankName: companyInfo[0].bankName || "",
+        iban: companyInfo[0].iban || "",
+        accountHolder: companyInfo[0].accountHolder || "",
+        swiftBic: companyInfo[0].swiftBic || ""
+      });
+    }
+  }, [companyInfo]);
+  const setCF = k => e => setCompanyForm(f => ({
+    ...f,
+    [k]: e.target.value
+  }));
+  const onLogoFile = file => {
+    const reader = new FileReader();
+    reader.onload = () => setCompanyForm(f => ({
+      ...f,
+      logoData: reader.result
+    }));
+    reader.readAsDataURL(file);
+  };
+  const saveCompanyInfo = () => {
+    updCompanyInfo(() => [{
+      id: "main",
+      ...companyForm
+    }]);
+    setCompanySaved(true);
+    setTimeout(() => setCompanySaved(false), 2500);
+  };
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     Object.entries(allData).forEach(([name, rows]) => {
@@ -7748,6 +8231,91 @@ function SettingsScreen({
   }, /*#__PURE__*/React.createElement(Download, {
     size: 16
   }), t("exportExcel"))), isManager && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-5",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3 font-semibold"
+  }, /*#__PURE__*/React.createElement(Building2, {
+    size: 17
+  }), t("companyInfo")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-3"
+  }, companyForm.logoData ? /*#__PURE__*/React.createElement("img", {
+    src: companyForm.logoData,
+    alt: "",
+    style: {
+      width: 56,
+      height: 56,
+      objectFit: "contain",
+      borderRadius: 8,
+      border: `1px solid ${theme.border}`
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 56,
+      height: 56,
+      borderRadius: 8,
+      border: `1px dashed ${theme.border}`
+    }
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "text-xs inline-flex items-center gap-1 px-3 py-2 rounded-lg cursor-pointer",
+    style: {
+      background: theme.primarySoft,
+      color: theme.primaryDark
+    }
+  }, /*#__PURE__*/React.createElement(FileUp, {
+    size: 14
+  }), t("uploadLogo"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    hidden: true,
+    accept: "image/*",
+    onChange: e => e.target.files[0] && onLogoFile(e.target.files[0])
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: t("companyName")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: companyForm.companyName,
+    onChange: setCF("companyName")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("bankName")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: companyForm.bankName,
+    onChange: setCF("bankName")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("ibanLabel")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: companyForm.iban,
+    onChange: setCF("iban")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("accountHolder")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: companyForm.accountHolder,
+    onChange: setCF("accountHolder")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("swiftBic")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: companyForm.swiftBic,
+    onChange: setCF("swiftBic")
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: saveCompanyInfo
+  }, /*#__PURE__*/React.createElement(Check, {
+    size: 16
+  }), t("saveCompanyInfo")), companySaved && /*#__PURE__*/React.createElement(Badge, {
+    theme: theme,
+    tone: "success",
+    text: t("savedSuccessfully2")
+  }))), isManager && /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
       background: theme.surface,
