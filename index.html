@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "v1";
+const APP_VERSION = "1.26.1";
 const THEMES = {
   orange: {
     name: {
@@ -1474,6 +1474,58 @@ const T = {
     ar: "ما عندك صلاحية لهذا الإجراء",
     en: "You don't have permission for this action"
   },
+  tooManyAttempts: {
+    ar: "محاولات كثيرة خاطئة، انتظر شوي",
+    en: "Too many failed attempts, please wait"
+  },
+  tryAgainIn: {
+    ar: "أعد المحاولة خلال",
+    en: "Try again in"
+  },
+  auditLog: {
+    ar: "سجل التدقيق",
+    en: "Audit Log"
+  },
+  auditLogTitle: {
+    ar: "سجل التدقيق — التعديلات والحذف",
+    en: "Audit Log — Edits & Deletions"
+  },
+  auditAction: {
+    ar: "الإجراء",
+    en: "Action"
+  },
+  auditUpdate: {
+    ar: "تعديل",
+    en: "Update"
+  },
+  auditDelete: {
+    ar: "حذف",
+    en: "Delete"
+  },
+  auditTable: {
+    ar: "الجدول",
+    en: "Table"
+  },
+  auditChangedBy: {
+    ar: "بواسطة",
+    en: "By"
+  },
+  auditViewDetails: {
+    ar: "عرض التفاصيل",
+    en: "View Details"
+  },
+  auditBefore: {
+    ar: "قبل",
+    en: "Before"
+  },
+  auditAfter: {
+    ar: "بعد",
+    en: "After"
+  },
+  auditNoChanges: {
+    ar: "لا توجد تعديلات أو عمليات حذف مسجّلة بعد",
+    en: "No edits or deletions logged yet"
+  },
   backupOverdueNote: {
     ar: "مر وقت طويل من آخر نسخة احتياطية — يُفضّل تصدير نسخة جديدة الآن",
     en: "It's been a while since your last backup — it's recommended to export a new one now"
@@ -1785,14 +1837,18 @@ const TABLES = {
       name: u.name,
       pin: u.pin,
       role: u.role,
-      auth_user_id: u.authUserId || null
+      auth_user_id: u.authUserId || null,
+      theme_key: u.themeKey || null,
+      lang: u.lang || null
     }),
     toJs: r => ({
       id: r.id,
       name: r.name,
       pin: r.pin,
       role: r.role,
-      authUserId: r.auth_user_id
+      authUserId: r.auth_user_id,
+      themeKey: r.theme_key,
+      lang: r.lang
     })
   },
   properties: {
@@ -2050,6 +2106,29 @@ const TABLES = {
       accountHolder: r.account_holder,
       swiftBic: r.swift_bic
     })
+  },
+  auditLog: {
+    table: "audit_log",
+    toRow: a => ({
+      id: a.id,
+      table_name: a.tableName,
+      record_id: a.recordId,
+      action: a.action,
+      changed_by: a.changedBy,
+      old_data: a.oldData,
+      new_data: a.newData,
+      created_at: a.createdAt
+    }),
+    toJs: r => ({
+      id: r.id,
+      tableName: r.table_name,
+      recordId: r.record_id,
+      action: r.action,
+      changedBy: r.changed_by,
+      oldData: r.old_data,
+      newData: r.new_data,
+      createdAt: r.created_at
+    })
   }
 };
 async function loadAllFromTable(key) {
@@ -2066,7 +2145,29 @@ async function loadAllFromTable(key) {
     return [];
   }
 }
-async function syncTableDiff(key, prevArr, nextArr) {
+
+// Used only for the pre-login screen's name list — anon only has column-level
+// access to id/name/role on app_users (the pin column is intentionally hidden
+// from anonymous requests at the database level).
+async function loadLoginDirectory() {
+  try {
+    const {
+      data,
+      error
+    } = await sb.from("app_users").select("id,name,role");
+    if (error) throw error;
+    return (data || []).map(r => ({
+      id: r.id,
+      name: r.name,
+      role: r.role
+    }));
+  } catch (e) {
+    console.error("Load error", "loginDirectory", e);
+    return [];
+  }
+}
+const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties"]);
+async function syncTableDiff(key, prevArr, nextArr, changedBy) {
   const cfg = TABLES[key];
   try {
     const prevIds = new Set(prevArr.map(x => x.id));
@@ -2076,8 +2177,36 @@ async function syncTableDiff(key, prevArr, nextArr) {
       const old = prevArr.find(p => p.id === x.id);
       return !old || JSON.stringify(old) !== JSON.stringify(x);
     });
-    if (toDelete.length) await sb.from(cfg.table).delete().in("id", toDelete);
-    if (toUpsert.length) await sb.from(cfg.table).upsert(toUpsert.map(cfg.toRow));
+    if (toDelete.length) {
+      await sb.from(cfg.table).delete().in("id", toDelete);
+      if (AUDITED_TABLES.has(key)) {
+        const rows = toDelete.map(id => ({
+          id: uid(),
+          table_name: key,
+          record_id: id,
+          action: "delete",
+          changed_by: changedBy || null,
+          old_data: prevArr.find(p => p.id === id) || null,
+          new_data: null
+        }));
+        sb.from("audit_log").insert(rows).then(() => {}).catch(() => {});
+      }
+    }
+    if (toUpsert.length) {
+      await sb.from(cfg.table).upsert(toUpsert.map(cfg.toRow));
+      if (AUDITED_TABLES.has(key)) {
+        const updateRows = toUpsert.filter(x => prevArr.some(p => p.id === x.id)).map(x => ({
+          id: uid(),
+          table_name: key,
+          record_id: x.id,
+          action: "update",
+          changed_by: changedBy || null,
+          old_data: prevArr.find(p => p.id === x.id),
+          new_data: x
+        }));
+        if (updateRows.length) sb.from("audit_log").insert(updateRows).then(() => {}).catch(() => {});
+      }
+    }
   } catch (e) {
     console.error("Sync error", key, e);
   }
@@ -2370,6 +2499,13 @@ function StatCard({
 
 /* ============================== PRINT HELPER ============================== */
 
+// Escapes user-supplied text before it's inserted into an HTML template string
+// (used throughout the print functions below) to prevent stored-XSS via
+// free-text fields like tenant names, notes, or property/owner names.
+function esc(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
 function ensurePrintArea() {
   let el = document.getElementById("aqaray-print-area");
   if (!el) {
@@ -2424,26 +2560,26 @@ function printDefaultDocument({
   const ci = companyInfo && companyInfo[0] || {};
   const hasBank = ci.bankName || ci.iban || ci.accountHolder || ci.swiftBic;
   const rowsHtml = rows.map(([label, value]) => `
-    <tr><th style="width:35%;">${label}</th><td>${value ?? ""}</td></tr>
+    <tr><th style="width:35%;">${esc(label)}</th><td>${esc(value ?? "")}</td></tr>
   `).join("");
   const bankHtml = hasBank ? `
     <div style="margin-top:18px;padding:12px 14px;border:1px solid ${gray.border};border-radius:8px;background:${gray.bg};">
       <p style="margin:0 0 6px 0;font-weight:700;color:${gray.primaryDark};font-size:12px;">${t("bankTransferDetails")}</p>
-      <p style="margin:2px 0;font-size:12px;">${t("bankName")}: ${ci.bankName || ""} &nbsp;|&nbsp; ${t("ibanLabel")}: ${ci.iban || ""}</p>
-      <p style="margin:2px 0;font-size:12px;">${t("accountHolder")}: ${ci.accountHolder || ""} &nbsp;|&nbsp; ${t("swiftBic")}: ${ci.swiftBic || ""}</p>
+      <p style="margin:2px 0;font-size:12px;">${t("bankName")}: ${esc(ci.bankName)} &nbsp;|&nbsp; ${t("ibanLabel")}: ${esc(ci.iban)}</p>
+      <p style="margin:2px 0;font-size:12px;">${t("accountHolder")}: ${esc(ci.accountHolder)} &nbsp;|&nbsp; ${t("swiftBic")}: ${esc(ci.swiftBic)}</p>
     </div>
   ` : "";
   const area = ensurePrintArea();
   area.innerHTML = `
     <div style="font-family:'Nunito',Tahoma,Arial,sans-serif;color:${gray.text};padding:20px;max-width:700px;margin:0 auto;">
       <div style="display:flex;align-items:center;gap:14px;border-bottom:2px solid ${gray.primary};padding-bottom:14px;margin-bottom:16px;">
-        ${ci.logoData ? `<img src="${ci.logoData}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : `<div style="height:56px;width:56px;border:1px dashed ${gray.border};border-radius:8px;"></div>`}
+        ${ci.logoData ? `<img src="${esc(ci.logoData)}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : `<div style="height:56px;width:56px;border:1px dashed ${gray.border};border-radius:8px;"></div>`}
         <div>
-          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName || (lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري")}</p>
+          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName ? esc(ci.companyName) : lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</p>
         </div>
       </div>
       <h2 style="margin:0 0 4px 0;font-size:16px;">${title2(docType, t)}</h2>
-      <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${docType === "receipt" ? t("receiptNo") : t("invoiceNo")}: ${docNo || "—"} &nbsp;|&nbsp; ${t("date")}: ${date}</p>
+      <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${docType === "receipt" ? t("receiptNo") : t("invoiceNo")}: ${esc(docNo || "—")} &nbsp;|&nbsp; ${t("date")}: ${esc(date)}</p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         ${rowsHtml}
       </table>
@@ -2635,9 +2771,9 @@ function printWithTemplate(title, imageDataUrl, fields, values) {
   const area = ensurePrintArea();
   const overlays = fields.map(f => `
     <div style="position:absolute;left:${f.xPct}%;top:${f.yPct}%;font-size:${f.fontSize || 14}px;color:#111;white-space:nowrap;transform:translate(0,-50%);">
-      ${values[f.key] ?? ""}
+      ${esc(values[f.key] ?? "")}
     </div>`).join("");
-  area.innerHTML = `<div class="page"><img src="${imageDataUrl}" />${overlays}</div>`;
+  area.innerHTML = `<div class="page"><img src="${esc(imageDataUrl)}" />${overlays}</div>`;
   setTimeout(() => window.print(), 120);
 }
 
@@ -2649,6 +2785,30 @@ function App() {
   const [lang, setLang] = useState("ar");
   const [themeKey, setThemeKey] = useState("turquoise");
   const [session, setSession] = useState(emptySession);
+
+  // Auto sign-out after a period of inactivity, to protect unattended sessions.
+  const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minutes
+  useEffect(() => {
+    if (!session.user) return;
+    let lastActivity = Date.now();
+    const markActivity = () => {
+      lastActivity = Date.now();
+    };
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach(ev => window.addEventListener(ev, markActivity, {
+      passive: true
+    }));
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivity >= INACTIVITY_LIMIT_MS) {
+        sb.auth.signOut();
+        setSession(emptySession);
+      }
+    }, 15000);
+    return () => {
+      events.forEach(ev => window.removeEventListener(ev, markActivity));
+      clearInterval(interval);
+    };
+  }, [session.user]);
   const [tab, setTab] = useState("dashboard");
   const [revenuePrefill, setRevenuePrefill] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
@@ -2676,6 +2836,7 @@ function App() {
   const [depositSettlements, setDepositSettlements] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [companyInfo, setCompanyInfo] = useState([]);
+  const [auditLog, setAuditLog] = useState([]);
   const t = useT(lang);
   const theme = THEMES[themeKey] || THEMES.turquoise;
   useEffect(() => {
@@ -2689,7 +2850,7 @@ function App() {
   }, []);
   useEffect(() => {
     (async () => {
-      const u = await loadAllFromTable("users");
+      const u = await loadLoginDirectory();
       setUsers(u || []);
       try {
         const prefsRaw = localStorage.getItem("aqaray_prefs");
@@ -2705,10 +2866,19 @@ function App() {
           data
         } = await sb.auth.getSession();
         if (data?.session) {
-          const matchedUser = (u || []).find(x => x.authUserId === data.session.user.id);
-          if (matchedUser) setSession({
-            user: matchedUser
-          });
+          // We already have a valid JWT at this point, so this query runs as
+          // "authenticated" and can see the full row (including pin).
+          const {
+            data: row
+          } = await sb.from("app_users").select("*").eq("auth_user_id", data.session.user.id).maybeSingle();
+          if (row) {
+            const jsUser = TABLES.users.toJs(row);
+            setSession({
+              user: jsUser
+            });
+            if (jsUser.themeKey && THEMES[jsUser.themeKey]) setThemeKey(jsUser.themeKey);
+            if (jsUser.lang) setLang(jsUser.lang);
+          }
         }
       } catch (e) {}
       setLoaded(true);
@@ -2720,7 +2890,7 @@ function App() {
       return;
     }
     (async () => {
-      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo")]);
+      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog")]);
       setProperties(p);
       setUnits(un);
       setTenants(tn);
@@ -2731,6 +2901,8 @@ function App() {
       setDepositSettlements(ds);
       setTemplates(tpl);
       setCompanyInfo(ci);
+      if (fullUsers && fullUsers.length) setUsers(fullUsers); // now authenticated, so pin/authUserId are visible
+      setAuditLog(al);
       setDataLoaded(true);
     })();
   }, [session.user]);
@@ -2742,13 +2914,19 @@ function App() {
         theme: themeKey
       }));
     } catch (e) {}
-  }, [lang, themeKey, loaded]);
+    if (session.user) {
+      sb.from("app_users").update({
+        theme_key: themeKey,
+        lang
+      }).eq("id", session.user.id).then(() => {}).catch(() => {});
+    }
+  }, [lang, themeKey, loaded, session.user]);
 
   // persisted setters
   const setAndSave = (setter, tableKey) => updater => {
     setter(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      syncTableDiff(tableKey, prev, next);
+      syncTableDiff(tableKey, prev, next, session.user?.name);
       return next;
     });
   };
@@ -2787,9 +2965,13 @@ function App() {
       setLang: setLang,
       t: t,
       users: users,
-      onLogin: u => setSession({
-        user: u
-      })
+      onLogin: u => {
+        setSession({
+          user: u
+        });
+        if (u.themeKey && THEMES[u.themeKey]) setThemeKey(u.themeKey);
+        if (u.lang) setLang(u.lang);
+      }
     });
   }
   if (!dataLoaded) {
@@ -2866,6 +3048,9 @@ function App() {
       key: "ownerSettlement",
       label: t("ownerSettlement")
     }] : []), ...(isManager ? [{
+      key: "auditLog",
+      label: t("auditLog")
+    }] : []), ...(isManager ? [{
       key: "users",
       label: t("usersMgmt")
     }] : []), {
@@ -2893,6 +3078,7 @@ function App() {
     users,
     templates,
     companyInfo,
+    auditLog,
     updProperties,
     updUnits,
     updTenants,
@@ -3062,7 +3248,7 @@ function App() {
       background: tab === c.key ? theme.primary : theme.primarySoft,
       color: tab === c.key ? "#fff" : theme.primaryDark
     }
-  }, c.label))), tab === "dashboard" && isManager && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && isManager && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && isManager && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
+  }, c.label))), tab === "dashboard" && isManager && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && isManager && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && isManager && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "auditLog" && isManager && /*#__PURE__*/React.createElement(AuditLogScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
     theme: theme,
     t: t,
     lang: lang,
@@ -3134,7 +3320,18 @@ function LoginScreen({
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const interval = setInterval(() => forceTick(x => x + 1), 1000);
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
+  const secondsLeft = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)) : 0;
+  const isLocked = secondsLeft > 0;
   const submit = async () => {
+    if (isLocked) return;
     const u = users.find(x => x.id === userId);
     if (!u) {
       setError(t("wrongPin"));
@@ -3151,11 +3348,23 @@ function LoginScreen({
         password: derivePassword(pin)
       });
       if (authErr) {
-        setError(t("wrongPin"));
+        const nextCount = failedAttempts + 1;
+        setFailedAttempts(nextCount);
+        if (nextCount >= 5) {
+          setLockedUntil(Date.now() + 60000);
+          setError(t("tooManyAttempts"));
+        } else {
+          setError(t("wrongPin"));
+        }
         setBusy(false);
         return;
       }
-      onLogin(u);
+      setFailedAttempts(0);
+      // Now authenticated — fetch the full record (theme/lang preference included)
+      const {
+        data: row
+      } = await sb.from("app_users").select("*").eq("id", u.id).maybeSingle();
+      onLogin(row ? TABLES.users.toJs(row) : u);
     } catch (e) {
       setError(t("wrongPin"));
     } finally {
@@ -3237,16 +3446,16 @@ function LoginScreen({
     style: {
       color: theme.danger
     }
-  }, error), /*#__PURE__*/React.createElement("button", {
+  }, error, isLocked ? ` (${secondsLeft})` : ""), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: submit,
-    disabled: busy,
+    disabled: busy || isLocked,
     className: "w-full rounded-xl py-2.5 font-semibold text-white mt-2",
     style: {
       background: theme.primary,
-      opacity: busy ? 0.6 : 1
+      opacity: busy || isLocked ? 0.6 : 1
     }
-  }, busy ? t("loading") : t("enter"))), /*#__PURE__*/React.createElement("button", {
+  }, isLocked ? `${t("tryAgainIn")} ${secondsLeft}s` : busy ? t("loading") : t("enter"))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setLang(lang === "ar" ? "en" : "ar"),
     className: "w-full text-center text-sm mt-4",
     style: {
@@ -4670,10 +4879,10 @@ function TenantFileModal({
       if (reportView === "ledger") {
         const section = (rows, title) => {
           const rowsHtml = rows.map(e => `
-            <tr><td>${e.date}</td><td>${e.desc}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
+            <tr><td>${esc(e.date)}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
           const finalBalance = rows.length ? rows[rows.length - 1].balance : 0;
           return `
-            <h2 style="font-size:14px;margin-top:18px;">${title}</h2>
+            <h2 style="font-size:14px;margin-top:18px;">${esc(title)}</h2>
             <table><thead><tr><th>${t("date")}</th><th>${t("description")}</th><th>${t("debit")}</th><th>${t("credit")}</th><th>${t("balance")}</th></tr></thead>
             <tbody>${rowsHtml}</tbody></table>
             <p class="total">${finalBalance > 0 ? t("balanceOwedByTenant") : t("balanceCreditToTenant")}: ${fmtMoney(Math.abs(finalBalance))} BHD</p>
@@ -4681,18 +4890,18 @@ function TenantFileModal({
         };
         const html = `
           <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
-          <h2>${t("financialReport")} — ${p?.buildingName || ""} ${u?.unitNo || ""} ${c.contractNo || ""}</h2>
+          <h2>${t("financialReport")} — ${esc(p?.buildingName)} ${esc(u?.unitNo)} ${esc(c.contractNo)}</h2>
           ${section(contractLedger.deposit, t("depositDue"))}
           ${section(contractLedger.rent, t("rentDue"))}
         `;
         printHtml(t("financialReport"), html, theme);
       } else if (reportView === "electricity") {
         const rows = elecLedger.map(e => `
-          <tr><td>${e.date}</td><td>${e.desc}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
+          <tr><td>${esc(e.date)}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
         const finalBalance = elecLedger.length ? elecLedger[elecLedger.length - 1].balance : 0;
         const html = `
           <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
-          <h2>${t("electricityStatement")} — ${p?.buildingName || ""} ${u?.unitNo || ""} ${c.contractNo || ""}</h2>
+          <h2>${t("electricityStatement")} — ${esc(p?.buildingName)} ${esc(u?.unitNo)} ${esc(c.contractNo)}</h2>
           <table><thead><tr><th>${t("date")}</th><th>${t("description")}</th><th>${t("debit")}</th><th>${t("credit")}</th><th>${t("balance")}</th></tr></thead>
           <tbody>${rows}</tbody></table>
           <p class="total">${finalBalance > 0 ? t("balanceOwedByTenant") : t("balanceCreditToTenant")}: ${fmtMoney(Math.abs(finalBalance))} BHD</p>
@@ -6991,10 +7200,10 @@ function FormsScreen(props) {
       <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
       <h2>${t("terminationDoc")}</h2>
       <table>
-        <tr><th>${t("tenantName")}</th><td>${tn?.name || ""}</td></tr>
-        <tr><th>${t("properties")}</th><td>${p?.buildingName || ""} — ${u?.unitNo || ""}</td></tr>
-        <tr><th>${t("terminationDate")}</th><td>${c.terminationDate || ""}</td></tr>
-        <tr><th>${t("terminationReason")}</th><td>${c.terminationReason || ""}</td></tr>
+        <tr><th>${t("tenantName")}</th><td>${esc(tn?.name)}</td></tr>
+        <tr><th>${t("properties")}</th><td>${esc(p?.buildingName)} — ${esc(u?.unitNo)}</td></tr>
+        <tr><th>${t("terminationDate")}</th><td>${esc(c.terminationDate)}</td></tr>
+        <tr><th>${t("terminationReason")}</th><td>${esc(c.terminationReason)}</td></tr>
       </table>
     `;
     printHtml(t("terminationDoc"), html, theme);
@@ -7435,7 +7644,7 @@ function ReportsScreen(props) {
     const rows = ledger.map(r => {
       const u = units.find(x => x.id === r.unitId);
       const p = u ? properties.find(x => x.id === u.propertyId) : properties.find(x => x.id === r.propertyId);
-      return `<tr><td>${r.date}</td><td>${r.kind === "revenue" ? t("revenues") : t("expenses")}</td><td>${p?.buildingName || ""} ${u ? "— " + u.unitNo : ""}</td><td>${fmtMoney(r.amount)}</td></tr>`;
+      return `<tr><td>${esc(r.date)}</td><td>${r.kind === "revenue" ? t("revenues") : t("expenses")}</td><td>${esc(p?.buildingName)} ${u ? "— " + esc(u.unitNo) : ""}</td><td>${fmtMoney(r.amount)}</td></tr>`;
     }).join("");
     const html = `
       <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
@@ -7700,17 +7909,17 @@ function OwnerSettlementScreen(props) {
     const p = properties.find(x => x.id === propertyId);
     const gray = THEMES.gray;
     const ci = companyInfo && companyInfo[0] || {};
-    const revRowsHtml = result.revenueRows.map(r => `<tr><td>${r.label}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
-    const expRowsHtml = result.expenseRows.map(r => `<tr><td>${r.label}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const revRowsHtml = result.revenueRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const expRowsHtml = result.expenseRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
     const area = ensurePrintArea();
     area.innerHTML = `
       <div style="font-family:'Nunito',Tahoma,Arial,sans-serif;color:${gray.text};padding:20px;max-width:700px;margin:0 auto;">
         <div style="display:flex;align-items:center;gap:14px;border-bottom:2px solid ${gray.primary};padding-bottom:14px;margin-bottom:16px;">
-          ${ci.logoData ? `<img src="${ci.logoData}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : ""}
-          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName || (lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري")}</p>
+          ${ci.logoData ? `<img src="${esc(ci.logoData)}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : ""}
+          <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName ? esc(ci.companyName) : lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</p>
         </div>
-        <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${p?.buildingName || ""}</h2>
-        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${from} → ${to}</p>
+        <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${esc(p?.buildingName)}</h2>
+        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${esc(from)} → ${esc(to)}</p>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("revenueBreakdown")}</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">${revRowsHtml}</table>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("expenseBreakdown")}</p>
@@ -7858,6 +8067,132 @@ function OwnerSettlementScreen(props) {
   }, /*#__PURE__*/React.createElement(Printer, {
     size: 16
   }), t("print"), "/", t("exportPdf"))));
+}
+
+/* ============================== AUDIT LOG ============================== */
+
+const AUDIT_TABLE_LABELS = {
+  revenues: {
+    ar: "الإيرادات",
+    en: "Revenues"
+  },
+  expenses: {
+    ar: "المصاريف",
+    en: "Expenses"
+  },
+  contracts: {
+    ar: "العقود",
+    en: "Contracts"
+  },
+  tenants: {
+    ar: "المستأجرين",
+    en: "Tenants"
+  },
+  properties: {
+    ar: "العقارات",
+    en: "Properties"
+  }
+};
+function AuditLogScreen({
+  theme,
+  t,
+  lang,
+  auditLog: initialAuditLog
+}) {
+  const [auditLog, setAuditLog] = useState(initialAuditLog);
+  const [expandedId, setExpandedId] = useState(null);
+  const [filterTable, setFilterTable] = useState("");
+  useEffect(() => {
+    loadAllFromTable("auditLog").then(rows => {
+      if (rows) setAuditLog(rows);
+    });
+  }, []);
+  const sorted = [...auditLog].filter(a => !filterTable || a.tableName === filterTable).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const renderFields = data => {
+    if (!data) return /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: theme.textSoft
+      }
+    }, "—");
+    return /*#__PURE__*/React.createElement("div", {
+      className: "space-y-0.5"
+    }, Object.entries(data).filter(([k]) => k !== "id").map(([k, v]) => /*#__PURE__*/React.createElement("p", {
+      key: k
+    }, /*#__PURE__*/React.createElement("b", null, k, ":"), " ", typeof v === "object" ? JSON.stringify(v) : String(v ?? ""))));
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-bold mb-5"
+  }, t("auditLogTitle")), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-4 mb-5",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("auditTable")
+  }, /*#__PURE__*/React.createElement("select", {
+    style: inputStyle(theme),
+    value: filterTable,
+    onChange: e => setFilterTable(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, t("all")), Object.entries(AUDIT_TABLE_LABELS).map(([key, label]) => /*#__PURE__*/React.createElement("option", {
+    key: key,
+    value: key
+  }, label[lang]))))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    theme: theme,
+    text: t("auditNoChanges")
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, sorted.map(a => {
+    const tableLabel = AUDIT_TABLE_LABELS[a.tableName] ? AUDIT_TABLE_LABELS[a.tableName][lang] : a.tableName;
+    const isExpanded = expandedId === a.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: a.id,
+      className: "rounded-xl overflow-hidden",
+      style: {
+        background: theme.surface,
+        border: `1px solid ${theme.border}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "p-3.5 flex items-center justify-between flex-wrap gap-2 cursor-pointer",
+      onClick: () => setExpandedId(isExpanded ? null : a.id)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement(Badge, {
+      theme: theme,
+      tone: a.action === "delete" ? "danger" : "warning",
+      text: a.action === "delete" ? t("auditDelete") : t("auditUpdate")
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "text-sm font-medium"
+    }, tableLabel), /*#__PURE__*/React.createElement("span", {
+      className: "text-xs",
+      style: {
+        color: theme.textSoft
+      }
+    }, t("auditChangedBy"), ": ", a.changedBy || "—")), /*#__PURE__*/React.createElement("span", {
+      className: "text-xs",
+      style: {
+        color: theme.textSoft
+      }
+    }, a.createdAt ? new Date(a.createdAt).toLocaleString(lang === "ar" ? "ar-BH" : "en-GB") : "")), isExpanded && /*#__PURE__*/React.createElement("div", {
+      className: "grid sm:grid-cols-2 gap-3 p-3.5 text-xs",
+      style: {
+        borderTop: `1px solid ${theme.border}`,
+        background: theme.bg
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "font-semibold mb-1",
+      style: {
+        color: theme.danger
+      }
+    }, t("auditBefore")), renderFields(a.oldData)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "font-semibold mb-1",
+      style: {
+        color: theme.success
+      }
+    }, t("auditAfter")), renderFields(a.newData))));
+  })));
 }
 
 /* ============================== USERS ============================== */
