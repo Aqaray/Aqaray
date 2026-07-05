@@ -717,6 +717,54 @@ const T = {
     ar: "هذه الوحدة عليها عقد ساري حالياً، لازم تفسخ أو تنهي العقد الحالي أولاً",
     en: "This unit already has an active contract. Terminate or end it first."
   },
+  missingUnit: {
+    ar: "لازم تختار الوحدة قبل الحفظ",
+    en: "Please select a unit before saving"
+  },
+  missingStartDate: {
+    ar: "لازم تحدد تاريخ بداية العقد",
+    en: "Please set the contract start date"
+  },
+  missingEndDate: {
+    ar: "لازم تحدد تاريخ نهاية العقد (اختر المدة أو أدخل تاريخ يدوياً)",
+    en: "Please set the contract end date (pick a duration or enter one manually)"
+  },
+  missingMonthlyRent: {
+    ar: "لازم تدخل قيمة الإيجار الشهري",
+    en: "Please enter the monthly rent amount"
+  },
+  missingContract: {
+    ar: "لازم تختار العقد قبل الحفظ",
+    en: "Please select a contract before saving"
+  },
+  missingAmount: {
+    ar: "لازم تدخل المبلغ",
+    en: "Please enter the amount"
+  },
+  missingAdvanceAmount: {
+    ar: "لازم تدخل المبلغ الإجمالي المدفوع مقدماً",
+    en: "Please enter the total advance amount paid"
+  },
+  missingProperty: {
+    ar: "لازم تختار العقار قبل الحفظ",
+    en: "Please select a property before saving"
+  },
+  missingBulkAmounts: {
+    ar: "لازم تدخل مبلغ فاتورة واحدة على الأقل قبل الحفظ",
+    en: "Please enter at least one bill amount before saving"
+  },
+  missingTemplateImage: {
+    ar: "لازم ترفع صورة القالب أولاً",
+    en: "Please upload a template image first"
+  },
+  missingTemplateName: {
+    ar: "لازم تكتب اسم للقالب",
+    en: "Please enter a name for the template"
+  },
+  missingTemplateFields: {
+    ar: "لازم تضيف حقل واحد على الأقل بالقالب",
+    en: "Please add at least one field to the template"
+  },
   uploadContract: {
     ar: "رفع العقد الموقّع",
     en: "Upload Signed Contract"
@@ -4600,7 +4648,22 @@ function ContractFormModal({
     [k]: e.target.value
   }));
   const submit = () => {
-    if (!form.unitId || !form.startDate || !form.endDate || !form.monthlyRent) return;
+    if (!form.unitId) {
+      notify(t("missingUnit"));
+      return;
+    }
+    if (!form.startDate) {
+      notify(t("missingStartDate"));
+      return;
+    }
+    if (!form.endDate) {
+      notify(t("missingEndDate"));
+      return;
+    }
+    if (!form.monthlyRent) {
+      notify(t("missingMonthlyRent"));
+      return;
+    }
     const conflict = contracts.some(c => c.unitId === form.unitId && c.status === "active" && (!renewing || c.id !== renewing.id));
     if (conflict) {
       notify(t("unitOccupied"));
@@ -5517,12 +5580,21 @@ function RevenueFormModal({
   const paidForMonth = (contractId, mk, excludeId) => revenues.filter(r => r.contractId === contractId && r.month === mk && r.type === "rent" && r.status !== "suspended" && r.id !== excludeId).reduce((s, r) => s + Number(r.amount || 0), 0);
   const submit = () => {
     if (type === "rent") {
-      if (!form.contractId) return;
+      if (!form.contractId) {
+        notify(t("missingContract"));
+        return;
+      }
       const c = contracts.find(x => x.id === form.contractId);
       const monthlyRent = Number(c.monthlyRent || 0);
       if (advanceMode) {
-        if (!advanceTotal || Number(advanceTotal) <= 0) return;
-        if (monthlyRent <= 0) return;
+        if (!advanceTotal || Number(advanceTotal) <= 0) {
+          notify(t("missingAdvanceAmount"));
+          return;
+        }
+        if (monthlyRent <= 0) {
+          notify(t("missingAdvanceAmount"));
+          return;
+        }
         let remaining = Number(advanceTotal);
         let mk = form.month;
         const entries = [];
@@ -5552,7 +5624,10 @@ function RevenueFormModal({
         onSave(entries);
         return;
       }
-      if (!form.amount) return;
+      if (!form.amount) {
+        notify(t("missingAmount"));
+        return;
+      }
       const alreadyPaid = paidForMonth(form.contractId, form.month, initial?.id);
       if (alreadyPaid >= monthlyRent - 0.001) {
         notify(t("monthAlreadyPaid"));
@@ -5573,7 +5648,14 @@ function RevenueFormModal({
         notes: form.notes
       });
     } else {
-      if (!form.propertyId || !form.amount) return;
+      if (!form.propertyId) {
+        notify(t("missingProperty"));
+        return;
+      }
+      if (!form.amount) {
+        notify(t("missingAmount"));
+        return;
+      }
       onSave({
         type: "other",
         category: form.category,
@@ -5959,6 +6041,9 @@ function ExpenseFormModal({
   onClose,
   onSave
 }) {
+  const {
+    notify
+  } = useDialogs();
   const [form, setForm] = useState({
     propertyId: "",
     unitId: "",
@@ -5973,7 +6058,15 @@ function ExpenseFormModal({
     [k]: e.target.value
   }));
   const submit = () => {
-    if (form.propertyId && form.amount) onSave({
+    if (!form.propertyId) {
+      notify(t("missingProperty"));
+      return;
+    }
+    if (!form.amount) {
+      notify(t("missingAmount"));
+      return;
+    }
+    onSave({
       ...form,
       unitId: form.unitId || null,
       amount: Number(form.amount)
@@ -6486,6 +6579,9 @@ function BulkElectricityModal({
   onClose,
   onSave
 }) {
+  const {
+    notify
+  } = useDialogs();
   const [propertyId, setPropertyId] = useState("");
   const [month, setMonth] = useState(monthKey());
   const [rows, setRows] = useState({}); // unitId -> { billAmount, chargeTenant }
@@ -6513,7 +6609,10 @@ function BulkElectricityModal({
         chargeTenant: row.chargeTenant !== false
       };
     }).filter(e => Number(e.billAmount) > 0);
-    if (entries.length === 0) return;
+    if (entries.length === 0) {
+      notify(t("missingBulkAmounts"));
+      return;
+    }
     onSave(month, entries);
   };
   return /*#__PURE__*/React.createElement(Modal, {
@@ -7471,7 +7570,18 @@ function TemplateDesignerModal({
     dragRef.current = null;
   };
   const submit = () => {
-    if (!name || !imageDataUrl || fields.length === 0) return;
+    if (!imageDataUrl) {
+      notify(t("missingTemplateImage"));
+      return;
+    }
+    if (!name) {
+      notify(t("missingTemplateName"));
+      return;
+    }
+    if (fields.length === 0) {
+      notify(t("missingTemplateFields"));
+      return;
+    }
     onSave({
       name,
       fields
