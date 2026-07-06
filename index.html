@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.2";
+const APP_VERSION = "1.26.3";
 const THEMES = {
   orange: {
     name: {
@@ -2367,6 +2367,8 @@ async function loadLoginDirectory() {
   }
 }
 const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties", "ownerSettlements"]);
+let onSyncError = null; // set by the App component to surface background save failures to the user
+
 async function syncTableDiff(key, prevArr, nextArr, changedBy) {
   const cfg = TABLES[key];
   try {
@@ -2378,7 +2380,10 @@ async function syncTableDiff(key, prevArr, nextArr, changedBy) {
       return !old || JSON.stringify(old) !== JSON.stringify(x);
     });
     if (toDelete.length) {
-      await sb.from(cfg.table).delete().in("id", toDelete);
+      const {
+        error
+      } = await sb.from(cfg.table).delete().in("id", toDelete);
+      if (error) throw error;
       if (AUDITED_TABLES.has(key)) {
         const rows = toDelete.map(id => ({
           id: uid(),
@@ -2393,7 +2398,10 @@ async function syncTableDiff(key, prevArr, nextArr, changedBy) {
       }
     }
     if (toUpsert.length) {
-      await sb.from(cfg.table).upsert(toUpsert.map(cfg.toRow));
+      const {
+        error
+      } = await sb.from(cfg.table).upsert(toUpsert.map(cfg.toRow));
+      if (error) throw error;
       if (AUDITED_TABLES.has(key)) {
         const updateRows = toUpsert.filter(x => prevArr.some(p => p.id === x.id)).map(x => ({
           id: uid(),
@@ -2409,6 +2417,7 @@ async function syncTableDiff(key, prevArr, nextArr, changedBy) {
     }
   } catch (e) {
     console.error("Sync error", key, e);
+    if (onSyncError) onSyncError(key, e);
   }
 }
 async function uploadContractFile(contractId, fileDataUrl) {
@@ -3026,6 +3035,14 @@ function App() {
     confirm: confirmFn,
     notify: notifyFn
   }), [confirmFn, notifyFn]);
+  useEffect(() => {
+    onSyncError = () => {
+      notifyFn(lang === "ar" ? "تنبيه: آخر عملية حفظ ما اكتملت فعلياً بقاعدة البيانات — حاول مرة ثانية، ولو تكررت المشكلة تواصل مع الدعم الفني." : "Warning: the last save did not actually complete in the database — please try again, and contact support if this keeps happening.");
+    };
+    return () => {
+      onSyncError = null;
+    };
+  }, [lang]);
   const [users, setUsers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [units, setUnits] = useState([]);
