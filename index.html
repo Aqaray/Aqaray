@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.3";
+const APP_VERSION = "1.26.4";
 const THEMES = {
   orange: {
     name: {
@@ -812,6 +812,10 @@ const T = {
   saveChanges: {
     ar: "حفظ التعديلات",
     en: "Save Changes"
+  },
+  tenantHasContractsCannotDelete: {
+    ar: "ما يمكن حذف هذا المستأجر — عنده عقود مسجّلة (حتى لو منتهية)، حذفه بيفقدك تاريخه المالي بالكامل. لو تبي تخفيه من القوائم، خله بدون عقد جديد فقط.",
+    en: "This tenant can't be deleted — they have contract history (even ended ones), and deleting them would erase their financial record. If you want to hide them, just avoid giving them a new contract."
   },
   uploadContract: {
     ar: "رفع العقد الموقّع",
@@ -2415,9 +2419,11 @@ async function syncTableDiff(key, prevArr, nextArr, changedBy) {
         if (updateRows.length) sb.from("audit_log").insert(updateRows).then(() => {}).catch(() => {});
       }
     }
+    return true;
   } catch (e) {
     console.error("Sync error", key, e);
     if (onSyncError) onSyncError(key, e);
+    return false;
   }
 }
 async function uploadContractFile(contractId, fileDataUrl) {
@@ -3036,8 +3042,9 @@ function App() {
     notify: notifyFn
   }), [confirmFn, notifyFn]);
   useEffect(() => {
-    onSyncError = () => {
-      notifyFn(lang === "ar" ? "تنبيه: آخر عملية حفظ ما اكتملت فعلياً بقاعدة البيانات — حاول مرة ثانية، ولو تكررت المشكلة تواصل مع الدعم الفني." : "Warning: the last save did not actually complete in the database — please try again, and contact support if this keeps happening.");
+    onSyncError = (key, err) => {
+      const detail = err?.message ? ` (${err.message})` : "";
+      notifyFn(lang === "ar" ? `تنبيه: العملية ما نجحت فعلياً — رجّعنا الشاشة لآخر وضع صحيح تلقائياً.${detail}` : `Warning: the operation did not actually succeed — the screen was automatically restored to its last correct state.${detail}`);
     };
     return () => {
       onSyncError = null;
@@ -3194,7 +3201,9 @@ function App() {
   const setAndSave = (setter, tableKey) => updater => {
     setter(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      syncTableDiff(tableKey, prev, next, session.user?.name);
+      syncTableDiff(tableKey, prev, next, session.user?.name).then(ok => {
+        if (!ok) setter(() => prev); // roll back to the last known-good state if the save actually failed
+      });
       return next;
     });
   };
@@ -4565,7 +4574,8 @@ function TenantsScreen(props) {
     setTenantFilePrefill
   } = props;
   const {
-    confirm
+    confirm,
+    notify
   } = useDialogs();
   const [showTenantModal, setShowTenantModal] = useState(false);
   const [editTenant, setEditTenant] = useState(null);
@@ -4595,6 +4605,11 @@ function TenantsScreen(props) {
     setEditTenant(null);
   };
   const deleteTenant = async id => {
+    const hasAnyContract = contracts.some(c => c.tenantId === id);
+    if (hasAnyContract) {
+      notify(t("tenantHasContractsCannotDelete"));
+      return;
+    }
     if (!(await confirm(t("confirmDelete")))) return;
     updTenants(prev => prev.filter(x => x.id !== id));
   };
@@ -4733,7 +4748,7 @@ function TenantsScreen(props) {
         }
       }, /*#__PURE__*/React.createElement(Edit2, {
         size: 13
-      })), isManager && /*#__PURE__*/React.createElement(Btn, {
+      })), isManager && tContracts.length === 0 && /*#__PURE__*/React.createElement(Btn, {
         theme: theme,
         variant: "danger",
         small: true,
