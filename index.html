@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.4";
+const APP_VERSION = "1.26.6";
 const THEMES = {
   orange: {
     name: {
@@ -816,6 +816,58 @@ const T = {
   tenantHasContractsCannotDelete: {
     ar: "ما يمكن حذف هذا المستأجر — عنده عقود مسجّلة (حتى لو منتهية)، حذفه بيفقدك تاريخه المالي بالكامل. لو تبي تخفيه من القوائم، خله بدون عقد جديد فقط.",
     en: "This tenant can't be deleted — they have contract history (even ended ones), and deleting them would erase their financial record. If you want to hide them, just avoid giving them a new contract."
+  },
+  typeToConfirmLabel: {
+    ar: "اكتب",
+    en: "Type"
+  },
+  confirmPermanentDelete: {
+    ar: "تأكيد الحذف النهائي",
+    en: "Confirm Permanent Delete"
+  },
+  hardDeleteTenant: {
+    ar: "حذف المستأجر نهائياً",
+    en: "Permanently Delete Tenant"
+  },
+  hardDeleteTenantWarning: {
+    ar: "تحذير: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم حذف هذا المستأجر وكل عقوده وكل الإيرادات وتسويات الكهرباء والتأمين والمصاريف المرتبطة بها بشكل كامل.",
+    en: "Warning: this action is permanent and cannot be undone. This tenant and all their contracts, revenues, electricity/deposit settlements, and related expenses will be permanently deleted."
+  },
+  hardDeleteContract: {
+    ar: "حذف العقد نهائياً",
+    en: "Permanently Delete Contract"
+  },
+  hardDeleteContractWarning: {
+    ar: "تحذير: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم حذف هذا العقد وكل الإيرادات وتسويات الكهرباء والتأمين والمصاريف المرتبطة فيه — المستأجر نفسه يبقى بدون حذف.",
+    en: "Warning: this action is permanent and cannot be undone. This contract and all its revenues, electricity/deposit settlements, and related expenses will be permanently deleted — the tenant record itself will remain."
+  },
+  resetProgram: {
+    ar: "إعادة ضبط البرنامج بالكامل",
+    en: "Full Program Reset"
+  },
+  resetProgramWarning: {
+    ar: "تحذير شديد: هذا الإجراء يمسح كل بيانات البرنامج نهائياً (كل العقارات، الوحدات، المستأجرين، العقود، الإيرادات، المصاريف، القوالب...) وكل حسابات المستخدمين الثانيين، ولا يمكن التراجع عنه أبداً. حسابك الحالي فقط يبقى.",
+    en: "Extreme warning: this wipes ALL program data permanently (all properties, units, tenants, contracts, revenues, expenses, templates...) and all other user accounts, and cannot be undone. Only your current account will remain."
+  },
+  resetProgramButton: {
+    ar: "إعادة الضبط الآن",
+    en: "Reset Now"
+  },
+  resetSummaryTitle: {
+    ar: "سيتم حذف:",
+    en: "Will be deleted:"
+  },
+  resetInProgress: {
+    ar: "جاري إعادة الضبط...",
+    en: "Resetting..."
+  },
+  resetComplete: {
+    ar: "تمت إعادة الضبط بنجاح",
+    en: "Reset completed successfully"
+  },
+  optionalBackupFirst: {
+    ar: "تقدر تصدّر نسخة احتياطية أول (اختياري) قبل ما تكمل",
+    en: "You can export a backup first (optional) before continuing"
   },
   uploadContract: {
     ar: "رفع العقد الموقّع",
@@ -1894,7 +1946,9 @@ function buildContractLedger(contract, units, revenues, lang, t) {
   });
   const rentEntries = [];
   if (contract.startDate && Number(contract.monthlyRent) > 0) {
-    const endBound = contract.status === "active" ? today : contract.endDate || today;
+    let boundary = contract.endDate || today;
+    if (contract.status === "terminated" && contract.terminationDate) boundary = contract.terminationDate;
+    const endBound = boundary < today ? boundary : today; // never compute rent due beyond today, nor beyond the contract's actual end/termination date
     const months = monthKeysBetween(contract.startDate, endBound < contract.startDate ? contract.startDate : endBound);
     months.forEach(mk => {
       rentEntries.push({
@@ -2564,6 +2618,66 @@ function Modal({
   }))), /*#__PURE__*/React.createElement("div", {
     className: "p-5"
   }, children)));
+}
+const DANGER_CONFIRM_PHRASE = "حذف نهائي";
+function DangerConfirmModal({
+  theme,
+  t,
+  title,
+  description,
+  summaryLines,
+  onConfirm,
+  onCancel,
+  busy
+}) {
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim() === DANGER_CONFIRM_PHRASE;
+  return /*#__PURE__*/React.createElement(Modal, {
+    theme: theme,
+    title: title,
+    onClose: onCancel
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3 mb-3",
+    style: {
+      background: theme.danger + "15",
+      border: `1px solid ${theme.danger}55`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm",
+    style: {
+      color: theme.danger
+    }
+  }, description)), summaryLines && summaryLines.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3 mb-3 text-sm space-y-1",
+    style: {
+      background: theme.bg,
+      border: `1px solid ${theme.border}`
+    }
+  }, summaryLines.map((line, i) => /*#__PURE__*/React.createElement("p", {
+    key: i
+  }, line))), /*#__PURE__*/React.createElement(Field, {
+    label: `${t("typeToConfirmLabel")} "${DANGER_CONFIRM_PHRASE}"`,
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: typed,
+    onChange: e => setTyped(e.target.value),
+    placeholder: DANGER_CONFIRM_PHRASE
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "danger",
+    onClick: onConfirm,
+    disabled: !matches || busy
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 16
+  }), busy ? t("loading") : t("confirmPermanentDelete")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: onCancel,
+    disabled: busy
+  }, t("cancel"))));
 }
 function Badge({
   text,
@@ -3573,6 +3687,8 @@ function App() {
     setUsers: setUsers,
     companyInfo: companyInfo,
     updCompanyInfo: updCompanyInfo,
+    ownerSettlements: ownerSettlements,
+    updOwnerSettlements: updOwnerSettlements,
     currentUser: session.user
   }))), /*#__PURE__*/React.createElement(DialogHost, {
     theme: theme,
@@ -4565,10 +4681,15 @@ function TenantsScreen(props) {
     units,
     properties,
     revenues,
+    expenses,
     elecSettlements,
+    depositSettlements,
     updTenants,
     updContracts,
     updRevenues,
+    updExpenses,
+    updElec,
+    updDeposits,
     currentUser,
     tenantFilePrefill,
     setTenantFilePrefill
@@ -4583,6 +4704,8 @@ function TenantsScreen(props) {
   const [renewContract, setRenewContract] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [focusContractId, setFocusContractId] = useState(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState(null); // { type: 'tenant'|'contract', item }
+  const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
   useEffect(() => {
     if (tenantFilePrefill) {
       const tn = tenants.find(x => x.id === tenantFilePrefill.tenantId);
@@ -4612,6 +4735,42 @@ function TenantsScreen(props) {
     }
     if (!(await confirm(t("confirmDelete")))) return;
     updTenants(prev => prev.filter(x => x.id !== id));
+  };
+
+  // Cascading permanent delete: removes every record referencing the given contract IDs,
+  // ordered child-records-first so we never leave orphaned foreign-key references.
+  const cascadeDeleteByContractIds = contractIds => {
+    const idSet = new Set(contractIds);
+    const relatedElecIds = new Set(elecSettlements.filter(e => idSet.has(e.contractId)).map(e => e.id));
+    contractIds.forEach(cid => {
+      sb.from("contract_files").delete().eq("contract_id", cid).then(() => {}).catch(() => {});
+    });
+    updRevenues(prev => prev.filter(r => !idSet.has(r.contractId)));
+    updExpenses(prev => prev.filter(e => !relatedElecIds.has(e.relatedElectricitySettlementId)));
+    updElec(prev => prev.filter(e => !idSet.has(e.contractId)));
+    updDeposits(prev => prev.filter(d => !idSet.has(d.contractId)));
+  };
+  const hardDeleteTenant = async tenant => {
+    setHardDeleteBusy(true);
+    try {
+      const tenantContractIds = contracts.filter(c => c.tenantId === tenant.id).map(c => c.id);
+      cascadeDeleteByContractIds(tenantContractIds);
+      updContracts(prev => prev.filter(c => c.tenantId !== tenant.id));
+      updTenants(prev => prev.filter(x => x.id !== tenant.id));
+      setHardDeleteTarget(null);
+    } finally {
+      setHardDeleteBusy(false);
+    }
+  };
+  const hardDeleteContract = async contract => {
+    setHardDeleteBusy(true);
+    try {
+      cascadeDeleteByContractIds([contract.id]);
+      updContracts(prev => prev.filter(c => c.id !== contract.id));
+      setHardDeleteTarget(null);
+    } finally {
+      setHardDeleteBusy(false);
+    }
   };
   const saveContract = (tenantId, data, renewingFrom) => {
     const newContract = {
@@ -4755,7 +4914,17 @@ function TenantsScreen(props) {
         onClick: () => deleteTenant(tn.id)
       }, /*#__PURE__*/React.createElement(Trash2, {
         size: 13
-      }))));
+      })), isManager && tContracts.length > 0 && /*#__PURE__*/React.createElement(Btn, {
+        theme: theme,
+        variant: "danger",
+        small: true,
+        onClick: () => setHardDeleteTarget({
+          type: "tenant",
+          item: tn
+        })
+      }, /*#__PURE__*/React.createElement(Trash2, {
+        size: 13
+      }), t("hardDeleteTenant"))));
     };
     const Group = ({
       title,
@@ -4821,7 +4990,11 @@ function TenantsScreen(props) {
       setRenewContract(c);
     },
     onTerminate: terminateContract,
-    focusContractId: focusContractId
+    focusContractId: focusContractId,
+    onHardDeleteContract: c => setHardDeleteTarget({
+      type: "contract",
+      item: c
+    })
   }), renewContract && /*#__PURE__*/React.createElement(ContractFormModal, {
     theme: theme,
     t: t,
@@ -4832,6 +5005,24 @@ function TenantsScreen(props) {
     renewing: renewContract,
     onClose: () => setRenewContract(null),
     onSave: data => saveContract(renewContract.tenantId, data, renewContract)
+  }), hardDeleteTarget && hardDeleteTarget.type === "tenant" && /*#__PURE__*/React.createElement(DangerConfirmModal, {
+    theme: theme,
+    t: t,
+    title: t("hardDeleteTenant"),
+    description: t("hardDeleteTenantWarning"),
+    summaryLines: [`${t("tenantName")}: ${hardDeleteTarget.item.name}`, `${t("contracts")}: ${contracts.filter(c => c.tenantId === hardDeleteTarget.item.id).length}`],
+    busy: hardDeleteBusy,
+    onConfirm: () => hardDeleteTenant(hardDeleteTarget.item),
+    onCancel: () => setHardDeleteTarget(null)
+  }), hardDeleteTarget && hardDeleteTarget.type === "contract" && /*#__PURE__*/React.createElement(DangerConfirmModal, {
+    theme: theme,
+    t: t,
+    title: t("hardDeleteContract"),
+    description: t("hardDeleteContractWarning"),
+    summaryLines: [`${t("contractNo")}: ${hardDeleteTarget.item.contractNo || "—"}`, `${t("revenues")}: ${revenues.filter(r => r.contractId === hardDeleteTarget.item.id).length}`],
+    busy: hardDeleteBusy,
+    onConfirm: () => hardDeleteContract(hardDeleteTarget.item),
+    onCancel: () => setHardDeleteTarget(null)
   }));
 }
 function TenantFormModal({
@@ -5132,7 +5323,8 @@ function TenantFileModal({
   onRenew,
   onTerminate,
   updContracts,
-  focusContractId
+  focusContractId,
+  onHardDeleteContract
 }) {
   const {
     notify
@@ -5340,7 +5532,14 @@ function TenantFileModal({
       onClick: () => setTerminating(c)
     }, /*#__PURE__*/React.createElement(Ban, {
       size: 13
-    }), t("terminate")), isManager && /*#__PURE__*/React.createElement("label", {
+    }), t("terminate")), isManager && /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "danger",
+      onClick: () => onHardDeleteContract(c)
+    }, /*#__PURE__*/React.createElement(Trash2, {
+      size: 13
+    }), t("hardDeleteContract")), isManager && /*#__PURE__*/React.createElement("label", {
       className: "text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg cursor-pointer",
       style: {
         background: theme.primarySoft,
@@ -9044,7 +9243,9 @@ function SettingsScreen({
   currentUser,
   companyInfo,
   updCompanyInfo,
-  setUsers
+  setUsers,
+  ownerSettlements,
+  updOwnerSettlements
 }) {
   const {
     notify,
@@ -9070,6 +9271,8 @@ function SettingsScreen({
     }
   });
   const [restoreSummary, setRestoreSummary] = useState(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
   const daysSinceBackup = lastBackupDate ? daysBetween(todayISO(), lastBackupDate) : null;
   const backupOverdue = daysSinceBackup === null || daysSinceBackup >= 14;
   useEffect(() => {
@@ -9124,6 +9327,57 @@ function SettingsScreen({
       localStorage.setItem("aqaray_last_backup", todayISO());
     } catch (e) {}
     setLastBackupDate(todayISO());
+  };
+  const resetEverything = async () => {
+    setResetBusy(true);
+    try {
+      // Delete all other user accounts (real auth accounts too), keep only the current one
+      const others = users.filter(u => u.id !== currentUser.id);
+      for (const u of others) {
+        try {
+          await callManageUserFunction({
+            action: "delete",
+            id: u.id,
+            authUserId: u.authUserId
+          });
+        } catch (e) {/* continue best-effort */}
+      }
+      setUsers([users.find(u => u.id === currentUser.id) || currentUser]);
+
+      // Wipe every business table
+      updProperties(() => []);
+      updUnits(() => []);
+      updTenants(() => []);
+      updContracts(() => []);
+      updRevenues(() => []);
+      updExpenses(() => []);
+      updElec(() => []);
+      updDeposits(() => []);
+      updTemplates(() => []);
+      updCompanyInfo(() => []);
+      updOwnerSettlements(() => []);
+
+      // Clear old audit log and contract files directly, then leave one fresh entry documenting the reset itself
+      try {
+        await sb.from("audit_log").delete().neq("id", "__never__");
+        await sb.from("contract_files").delete().neq("contract_id", "__never__");
+        await sb.from("audit_log").insert([{
+          id: uid(),
+          table_name: "system",
+          record_id: null,
+          action: "reset",
+          changed_by: currentUser.name,
+          old_data: null,
+          new_data: {
+            note: "Full program reset"
+          }
+        }]);
+      } catch (e) {/* best-effort */}
+      setShowResetConfirm(false);
+      notify(t("resetComplete"));
+    } finally {
+      setResetBusy(false);
+    }
   };
   const restoreFromBackup = file => {
     const reader = new FileReader();
@@ -9540,6 +9794,43 @@ function SettingsScreen({
   }, t("properties"), ": ", restoreSummary.properties, " · ", t("units"), ": ", restoreSummary.units, " · ", t("tenants"), ": ", restoreSummary.tenants, " · ", t("contracts"), ": ", restoreSummary.contracts, " · ", t("revenues"), ": ", restoreSummary.revenues, " · ", t("expenses"), ": ", restoreSummary.expenses, " · ", t("usersMgmt"), ": ", restoreSummary.usersRecreated))), isManager && /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
+      background: theme.danger + "0d",
+      border: `1px solid ${theme.danger}55`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3 font-semibold",
+    style: {
+      color: theme.danger
+    }
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 17
+  }), t("resetProgram")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mb-3",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("resetProgramWarning")), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mb-3",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("optionalBackupFirst")), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: exportExcel
+  }, /*#__PURE__*/React.createElement(Download, {
+    size: 16
+  }), t("exportExcel")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "danger",
+    onClick: () => setShowResetConfirm(true)
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 16
+  }), t("resetProgramButton")))), isManager && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-5",
+    style: {
       background: theme.surface,
       border: `1px solid ${theme.border}`
     }
@@ -9741,7 +10032,16 @@ function SettingsScreen({
     style: {
       color: theme.textSoft
     }
-  }, t("properties"), ": ", importSummary.properties, " · ", t("units"), ": ", importSummary.units, " · ", t("tenants"), ": ", importSummary.tenants, " · ", t("contracts"), ": ", importSummary.contracts)))));
+  }, t("properties"), ": ", importSummary.properties, " · ", t("units"), ": ", importSummary.units, " · ", t("tenants"), ": ", importSummary.tenants, " · ", t("contracts"), ": ", importSummary.contracts)))), showResetConfirm && /*#__PURE__*/React.createElement(DangerConfirmModal, {
+    theme: theme,
+    t: t,
+    title: t("resetProgram"),
+    description: t("resetProgramWarning"),
+    summaryLines: [`${t("resetSummaryTitle")}`, `${t("properties")}: ${properties.length} · ${t("units")}: ${units.length} · ${t("tenants")}: ${tenants.length} · ${t("contracts")}: ${contracts.length}`, `${t("revenues")}: ${revenues.length} · ${t("expenses")}: ${expenses.length} · ${t("usersMgmt")}: ${Math.max(0, users.length - 1)}`],
+    busy: resetBusy,
+    onConfirm: resetEverything,
+    onCancel: () => setShowResetConfirm(false)
+  }));
 }
 
 const rootEl = document.getElementById("root");
