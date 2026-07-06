@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.1";
+const APP_VERSION = "1.26.2";
 const THEMES = {
   orange: {
     name: {
@@ -764,6 +764,54 @@ const T = {
   missingTemplateFields: {
     ar: "لازم تضيف حقل واحد على الأقل بالقالب",
     en: "Please add at least one field to the template"
+  },
+  tenantsWithActiveContract: {
+    ar: "عقود سارية",
+    en: "Active Contracts"
+  },
+  tenantsWithEndedContract: {
+    ar: "عقود منتهية / مفسوخة",
+    en: "Ended / Terminated Contracts"
+  },
+  tenantsWithNoContract: {
+    ar: "بدون عقد",
+    en: "No Contract"
+  },
+  thisMonth: {
+    ar: "هذا الشهر",
+    en: "This Month"
+  },
+  thisQuarter: {
+    ar: "هذا الربع",
+    en: "This Quarter"
+  },
+  thisFiscalYear: {
+    ar: "هذه السنة المالية",
+    en: "This Fiscal Year"
+  },
+  custom: {
+    ar: "مخصص",
+    en: "Custom"
+  },
+  postSettlement: {
+    ar: "نشر (Post)",
+    en: "Post"
+  },
+  settlementHistory: {
+    ar: "سجل التسويات السابقة",
+    en: "Settlement History"
+  },
+  postedBy: {
+    ar: "نُشرت بواسطة",
+    en: "Posted by"
+  },
+  noSettlementsYet: {
+    ar: "ما فيه أي تسويات منشورة بعد",
+    en: "No settlements posted yet"
+  },
+  saveChanges: {
+    ar: "حفظ التعديلات",
+    en: "Save Changes"
   },
   uploadContract: {
     ar: "رفع العقد الموقّع",
@@ -1718,6 +1766,81 @@ function nextDocNo(prefix, items, dateStr, field) {
   });
   return `${yearPrefix}${String(maxSeq + 1).padStart(3, "0")}`;
 }
+function getQuickDateRange(key) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-based
+  const pad = n => String(n).padStart(2, "0");
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (key === "thisMonth") {
+    return {
+      from: fmt(new Date(y, m, 1)),
+      to: fmt(new Date(y, m + 1, 0))
+    };
+  }
+  if (key === "thisQuarter") {
+    const qStartMonth = Math.floor(m / 3) * 3;
+    return {
+      from: fmt(new Date(y, qStartMonth, 1)),
+      to: fmt(new Date(y, qStartMonth + 3, 0))
+    };
+  }
+  if (key === "thisFiscalYear") {
+    return {
+      from: `${y}-01-01`,
+      to: `${y}-12-31`
+    };
+  }
+  return null;
+}
+function QuickDateFilter({
+  theme,
+  t,
+  from,
+  to,
+  setFrom,
+  setTo
+}) {
+  const [mode, setMode] = useState("custom");
+  const applyPreset = key => {
+    setMode(key);
+    if (key === "custom") return;
+    const range = getQuickDateRange(key);
+    if (range) {
+      setFrom(range.from);
+      setTo(range.to);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5 mb-2"
+  }, ["thisMonth", "thisQuarter", "thisFiscalYear", "custom"].map(key => /*#__PURE__*/React.createElement("button", {
+    key: key,
+    type: "button",
+    onClick: () => applyPreset(key),
+    className: "px-3 py-1.5 rounded-lg text-xs font-medium",
+    style: {
+      background: mode === key ? theme.primary : theme.bg,
+      color: mode === key ? "#fff" : theme.text,
+      border: `1px solid ${theme.border}`
+    }
+  }, t(key)))), mode === "custom" && /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("from")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: from,
+    onChange: e => setFrom(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("to")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: to,
+    onChange: e => setTo(e.target.value)
+  }))));
+}
 function addMonthsToKey(mk, n) {
   const [y, m] = mk.split("-").map(Number);
   const d = new Date(y, m - 1 + n, 1);
@@ -2177,6 +2300,35 @@ const TABLES = {
       newData: r.new_data,
       createdAt: r.created_at
     })
+  },
+  ownerSettlements: {
+    table: "owner_settlements",
+    toRow: s => ({
+      id: s.id,
+      property_id: s.propertyId,
+      from_date: s.from,
+      to_date: s.to,
+      revenue_rows: s.revenueRows,
+      expense_rows: s.expenseRows,
+      total_revenue: s.totalRevenue,
+      total_expenses: s.totalExpenses,
+      net_profit: s.netProfit,
+      posted_by: s.postedBy,
+      posted_at: s.postedAt
+    }),
+    toJs: r => ({
+      id: r.id,
+      propertyId: r.property_id,
+      from: r.from_date,
+      to: r.to_date,
+      revenueRows: r.revenue_rows,
+      expenseRows: r.expense_rows,
+      totalRevenue: r.total_revenue,
+      totalExpenses: r.total_expenses,
+      netProfit: r.net_profit,
+      postedBy: r.posted_by,
+      postedAt: r.posted_at
+    })
   }
 };
 async function loadAllFromTable(key) {
@@ -2214,7 +2366,7 @@ async function loadLoginDirectory() {
     return [];
   }
 }
-const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties"]);
+const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties", "ownerSettlements"]);
 async function syncTableDiff(key, prevArr, nextArr, changedBy) {
   const cfg = TABLES[key];
   try {
@@ -2859,6 +3011,7 @@ function App() {
   }, [session.user]);
   const [tab, setTab] = useState("dashboard");
   const [revenuePrefill, setRevenuePrefill] = useState(null);
+  const [tenantFilePrefill, setTenantFilePrefill] = useState(null); // { tenantId, contractId }
   const [confirmState, setConfirmState] = useState(null);
   const [alertState, setAlertState] = useState(null);
   const confirmFn = useCallback((message, confirmLabel) => new Promise(resolve => {
@@ -2885,6 +3038,7 @@ function App() {
   const [templates, setTemplates] = useState([]);
   const [companyInfo, setCompanyInfo] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
+  const [ownerSettlements, setOwnerSettlements] = useState([]);
   const t = useT(lang);
   const theme = THEMES[themeKey] || THEMES.turquoise;
   useEffect(() => {
@@ -2938,7 +3092,7 @@ function App() {
       return;
     }
     (async () => {
-      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog")]);
+      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al, os] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog"), loadAllFromTable("ownerSettlements")]);
       setProperties(p);
       setUnits(un);
       setTenants(tn);
@@ -2951,8 +3105,57 @@ function App() {
       setCompanyInfo(ci);
       if (fullUsers && fullUsers.length) setUsers(fullUsers); // now authenticated, so pin/authUserId are visible
       setAuditLog(al);
+      setOwnerSettlements(os);
       setDataLoaded(true);
     })();
+  }, [session.user]);
+
+  // Real-time sync: reflect changes made from other devices/sessions automatically.
+  useEffect(() => {
+    if (!session.user) return;
+    const setters = {
+      properties: setProperties,
+      units: setUnits,
+      tenants: setTenants,
+      contracts: setContracts,
+      revenues: setRevenues,
+      expenses: setExpenses,
+      elecSettlements: setElecSettlements,
+      depositSettlements: setDepositSettlements,
+      templates: setTemplates,
+      companyInfo: setCompanyInfo,
+      auditLog: setAuditLog,
+      ownerSettlements: setOwnerSettlements
+    };
+    const channel = sb.channel("aqaray-realtime-" + session.user.id);
+    Object.entries(TABLES).forEach(([key, cfg]) => {
+      const setter = setters[key];
+      if (!setter) return;
+      channel.on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: cfg.table
+      }, payload => {
+        setter(prev => {
+          if (payload.eventType === "DELETE") {
+            const oldId = payload.old?.id;
+            return prev.filter(x => x.id !== oldId);
+          }
+          const jsRow = cfg.toJs(payload.new);
+          const idx = prev.findIndex(x => x.id === jsRow.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = jsRow;
+            return next;
+          }
+          return [...prev, jsRow];
+        });
+      });
+    });
+    channel.subscribe();
+    return () => {
+      sb.removeChannel(channel);
+    };
   }, [session.user]);
   useEffect(() => {
     if (!loaded) return;
@@ -2988,6 +3191,7 @@ function App() {
   const updElec = setAndSave(setElecSettlements, "elecSettlements");
   const updDeposits = setAndSave(setDepositSettlements, "depositSettlements");
   const updTemplates = setAndSave(setTemplates, "templates");
+  const updOwnerSettlements = setAndSave(setOwnerSettlements, "ownerSettlements");
   const updCompanyInfo = setAndSave(setCompanyInfo, "companyInfo");
   const dir = lang === "ar" ? "rtl" : "ltr";
   const isManager = session.user?.role === "manager";
@@ -3127,6 +3331,7 @@ function App() {
     templates,
     companyInfo,
     auditLog,
+    ownerSettlements,
     updProperties,
     updUnits,
     updTenants,
@@ -3138,10 +3343,13 @@ function App() {
     updUsers,
     updTemplates,
     updCompanyInfo,
+    updOwnerSettlements,
     setUsers,
     setTab,
     revenuePrefill,
-    setRevenuePrefill
+    setRevenuePrefill,
+    tenantFilePrefill,
+    setTenantFilePrefill
   };
   return /*#__PURE__*/React.createElement(DialogCtx.Provider, {
     value: dialogsValue
@@ -3932,7 +4140,10 @@ function PropertiesScreen({
   units,
   updProperties,
   updUnits,
-  contracts
+  contracts,
+  tenants,
+  setTab,
+  setTenantFilePrefill
 }) {
   const {
     confirm,
@@ -4094,7 +4305,9 @@ function PropertiesScreen({
       className: "grid sm:grid-cols-2 md:grid-cols-3 gap-2"
     }, propUnits.map(u => {
       const utype = UNIT_TYPES.find(x => x.key === u.unitType);
-      const hasActive = contracts.some(c => c.unitId === u.id && c.status === "active");
+      const activeContract = contracts.find(c => c.unitId === u.id && c.status === "active");
+      const hasActive = !!activeContract;
+      const tenant = activeContract ? tenants.find(tn => tn.id === activeContract.tenantId) : null;
       return /*#__PURE__*/React.createElement("div", {
         key: u.id,
         className: "rounded-xl p-3",
@@ -4115,7 +4328,20 @@ function PropertiesScreen({
         style: {
           color: theme.textSoft
         }
-      }, utype ? utype[lang] : ""), isManager && /*#__PURE__*/React.createElement("div", {
+      }, utype ? utype[lang] : ""), hasActive && tenant && /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          setTenantFilePrefill({
+            tenantId: tenant.id,
+            contractId: activeContract.id
+          });
+          setTab("tenants");
+        },
+        className: "text-xs mb-2 block w-full text-start rounded-lg px-2 py-1.5 hover:opacity-75",
+        style: {
+          background: theme.primarySoft,
+          color: theme.primaryDark
+        }
+      }, tenant.name, " ", activeContract.contractNo ? `· ${activeContract.contractNo}` : ""), isManager && /*#__PURE__*/React.createElement("div", {
         className: "flex gap-1.5"
       }, /*#__PURE__*/React.createElement("button", {
         onClick: () => {
@@ -4317,7 +4543,9 @@ function TenantsScreen(props) {
     updTenants,
     updContracts,
     updRevenues,
-    currentUser
+    currentUser,
+    tenantFilePrefill,
+    setTenantFilePrefill
   } = props;
   const {
     confirm
@@ -4327,6 +4555,17 @@ function TenantsScreen(props) {
   const [showContractModal, setShowContractModal] = useState(null); // tenantId
   const [renewContract, setRenewContract] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(null);
+  const [focusContractId, setFocusContractId] = useState(null);
+  useEffect(() => {
+    if (tenantFilePrefill) {
+      const tn = tenants.find(x => x.id === tenantFilePrefill.tenantId);
+      if (tn) {
+        setSelectedTenant(tn);
+        setFocusContractId(tenantFilePrefill.contractId || null);
+      }
+      setTenantFilePrefill(null);
+    }
+  }, [tenantFilePrefill]);
   const saveTenant = data => {
     if (editTenant) updTenants(prev => prev.map(x => x.id === editTenant.id ? {
       ...x,
@@ -4409,76 +4648,114 @@ function TenantsScreen(props) {
   }), t("addTenant"))), tenants.length === 0 && /*#__PURE__*/React.createElement(EmptyState, {
     theme: theme,
     text: t("noData")
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "grid md:grid-cols-2 gap-3"
-  }, tenants.map(tn => {
-    const tContracts = contracts.filter(c => c.tenantId === tn.id);
-    const active = tContracts.find(c => c.status === "active");
-    const unit = active ? units.find(u => u.id === active.unitId) : null;
-    return /*#__PURE__*/React.createElement("div", {
+  }), (() => {
+    const withActive = [];
+    const withEndedOnly = [];
+    const withNoContract = [];
+    tenants.forEach(tn => {
+      const tContracts = contracts.filter(c => c.tenantId === tn.id);
+      const active = tContracts.find(c => c.status === "active");
+      if (active) withActive.push(tn);else if (tContracts.length > 0) withEndedOnly.push(tn);else withNoContract.push(tn);
+    });
+    const TenantCard = ({
+      tn
+    }) => {
+      const tContracts = contracts.filter(c => c.tenantId === tn.id);
+      const active = tContracts.find(c => c.status === "active");
+      return /*#__PURE__*/React.createElement("div", {
+        className: "rounded-2xl p-4",
+        style: {
+          background: theme.surface,
+          border: `1px solid ${theme.border}`
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-start justify-between"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+        className: "font-semibold"
+      }, tn.name), /*#__PURE__*/React.createElement("p", {
+        className: "text-xs",
+        style: {
+          color: theme.textSoft
+        }
+      }, tn.phone, " ", tn.email ? "· " + tn.email : ""), /*#__PURE__*/React.createElement("p", {
+        className: "text-xs",
+        style: {
+          color: theme.textSoft
+        }
+      }, tn.nationality)), active ? /*#__PURE__*/React.createElement(Badge, {
+        theme: theme,
+        tone: "success",
+        text: t("active")
+      }) : /*#__PURE__*/React.createElement(Badge, {
+        theme: theme,
+        tone: "neutral",
+        text: t("noData")
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap gap-2 mt-3"
+      }, /*#__PURE__*/React.createElement(Btn, {
+        theme: theme,
+        variant: "ghost",
+        small: true,
+        onClick: () => setSelectedTenant(tn)
+      }, /*#__PURE__*/React.createElement(Eye, {
+        size: 13
+      }), t("tenantFile")), !active && /*#__PURE__*/React.createElement(Btn, {
+        theme: theme,
+        variant: "outline",
+        small: true,
+        onClick: () => setShowContractModal(tn.id)
+      }, /*#__PURE__*/React.createElement(Plus, {
+        size: 13
+      }), t("addContract")), isManager && /*#__PURE__*/React.createElement(Btn, {
+        theme: theme,
+        variant: "ghost",
+        small: true,
+        onClick: () => {
+          setEditTenant(tn);
+          setShowTenantModal(true);
+        }
+      }, /*#__PURE__*/React.createElement(Edit2, {
+        size: 13
+      })), isManager && /*#__PURE__*/React.createElement(Btn, {
+        theme: theme,
+        variant: "danger",
+        small: true,
+        onClick: () => deleteTenant(tn.id)
+      }, /*#__PURE__*/React.createElement(Trash2, {
+        size: 13
+      }))));
+    };
+    const Group = ({
+      title,
+      tone,
+      list
+    }) => list.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "mb-6"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "font-semibold text-sm mb-2",
+      style: {
+        color: tone
+      }
+    }, title, " (", list.length, ")"), /*#__PURE__*/React.createElement("div", {
+      className: "grid md:grid-cols-2 gap-3"
+    }, list.map(tn => /*#__PURE__*/React.createElement(TenantCard, {
       key: tn.id,
-      className: "rounded-2xl p-4",
-      style: {
-        background: theme.surface,
-        border: `1px solid ${theme.border}`
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-start justify-between"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-      className: "font-semibold"
-    }, tn.name), /*#__PURE__*/React.createElement("p", {
-      className: "text-xs",
-      style: {
-        color: theme.textSoft
-      }
-    }, tn.phone, " ", tn.email ? "· " + tn.email : ""), /*#__PURE__*/React.createElement("p", {
-      className: "text-xs",
-      style: {
-        color: theme.textSoft
-      }
-    }, tn.nationality)), active ? /*#__PURE__*/React.createElement(Badge, {
-      theme: theme,
-      tone: "success",
-      text: t("active")
-    }) : /*#__PURE__*/React.createElement(Badge, {
-      theme: theme,
-      tone: "neutral",
-      text: t("noData")
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-2 mt-3"
-    }, /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "ghost",
-      small: true,
-      onClick: () => setSelectedTenant(tn)
-    }, /*#__PURE__*/React.createElement(Eye, {
-      size: 13
-    }), t("tenantFile")), !active && /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "outline",
-      small: true,
-      onClick: () => setShowContractModal(tn.id)
-    }, /*#__PURE__*/React.createElement(Plus, {
-      size: 13
-    }), t("addContract")), isManager && /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "ghost",
-      small: true,
-      onClick: () => {
-        setEditTenant(tn);
-        setShowTenantModal(true);
-      }
-    }, /*#__PURE__*/React.createElement(Edit2, {
-      size: 13
-    })), isManager && /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "danger",
-      small: true,
-      onClick: () => deleteTenant(tn.id)
-    }, /*#__PURE__*/React.createElement(Trash2, {
-      size: 13
+      tn: tn
     }))));
-  })), showTenantModal && /*#__PURE__*/React.createElement(TenantFormModal, {
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Group, {
+      title: t("tenantsWithActiveContract"),
+      tone: theme.success,
+      list: withActive
+    }), /*#__PURE__*/React.createElement(Group, {
+      title: t("tenantsWithEndedContract"),
+      tone: theme.warning,
+      list: withEndedOnly
+    }), /*#__PURE__*/React.createElement(Group, {
+      title: t("tenantsWithNoContract"),
+      tone: theme.textSoft,
+      list: withNoContract
+    }));
+  })(), showTenantModal && /*#__PURE__*/React.createElement(TenantFormModal, {
     theme: theme,
     t: t,
     lang: lang,
@@ -4502,13 +4779,17 @@ function TenantsScreen(props) {
     t: t,
     lang: lang,
     tenant: selectedTenant,
-    onClose: () => setSelectedTenant(null),
+    onClose: () => {
+      setSelectedTenant(null);
+      setFocusContractId(null);
+    },
     ...props,
     onRenew: c => {
       setSelectedTenant(null);
       setRenewContract(c);
     },
-    onTerminate: terminateContract
+    onTerminate: terminateContract,
+    focusContractId: focusContractId
   }), renewContract && /*#__PURE__*/React.createElement(ContractFormModal, {
     theme: theme,
     t: t,
@@ -4818,7 +5099,8 @@ function TenantFileModal({
   isManager,
   onRenew,
   onTerminate,
-  updContracts
+  updContracts,
+  focusContractId
 }) {
   const {
     notify
@@ -4976,7 +5258,8 @@ function TenantFileModal({
       className: "rounded-xl p-3 mb-2",
       style: {
         background: theme.bg,
-        border: `1px solid ${theme.border}`
+        border: focusContractId === c.id ? `2px solid ${theme.primary}` : `1px solid ${theme.border}`,
+        boxShadow: focusContractId === c.id ? `0 0 0 3px ${theme.primarySoft}` : "none"
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between mb-1"
@@ -7796,23 +8079,14 @@ function ReportsScreen(props) {
     value: "expenses"
   }, t("expensesOnly")))), /*#__PURE__*/React.createElement(Field, {
     label: t("period")
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5 items-center"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    style: inputStyle(theme),
-    value: from,
-    onChange: e => setFrom(e.target.value)
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: theme.textSoft
-    }
-  }, "→"), /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    style: inputStyle(theme),
-    value: to,
-    onChange: e => setTo(e.target.value)
-  }))), /*#__PURE__*/React.createElement(Field, {
+  }, /*#__PURE__*/React.createElement(QuickDateFilter, {
+    theme: theme,
+    t: t,
+    from: from,
+    to: to,
+    setFrom: setFrom,
+    setTo: setTo
+  })), /*#__PURE__*/React.createElement(Field, {
     label: t("selectProperty")
   }, /*#__PURE__*/React.createElement("select", {
     style: inputStyle(theme),
@@ -7959,12 +8233,21 @@ function OwnerSettlementScreen(props) {
     units,
     revenues,
     expenses,
-    companyInfo
+    companyInfo,
+    ownerSettlements,
+    updOwnerSettlements,
+    currentUser
   } = props;
+  const {
+    confirm
+  } = useDialogs();
   const [propertyId, setPropertyId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [result, setResult] = useState(null);
+  const [editingId, setEditingId] = useState(null); // id of a posted settlement being edited
+  const [editRows, setEditRows] = useState(null); // { revenueRows, expenseRows } while editing
+
   const generate = () => {
     if (!propertyId || !from || !to) return;
     const propUnitIds = new Set(units.filter(u => u.propertyId === propertyId).map(u => u.id));
@@ -8014,13 +8297,12 @@ function OwnerSettlementScreen(props) {
       netProfit: totalRevenue - totalExpenses
     });
   };
-  const printSettlement = () => {
-    if (!result) return;
-    const p = properties.find(x => x.id === propertyId);
+  const printData = (data, propertyLabel, periodFrom, periodTo) => {
+    const p2 = properties.find(x => x.buildingName === propertyLabel) || properties.find(x => x.id === propertyId);
     const gray = THEMES.gray;
     const ci = companyInfo && companyInfo[0] || {};
-    const revRowsHtml = result.revenueRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
-    const expRowsHtml = result.expenseRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const revRowsHtml = data.revenueRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
+    const expRowsHtml = data.expenseRows.map(r => `<tr><td>${esc(r.label)}</td><td>${fmtMoney(r.amount)}</td></tr>`).join("");
     const area = ensurePrintArea();
     area.innerHTML = `
       <div style="font-family:'Nunito',Tahoma,Arial,sans-serif;color:${gray.text};padding:20px;max-width:700px;margin:0 auto;">
@@ -8028,15 +8310,15 @@ function OwnerSettlementScreen(props) {
           ${ci.logoData ? `<img src="${esc(ci.logoData)}" style="height:56px;width:56px;object-fit:contain;border-radius:8px;" />` : ""}
           <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName ? esc(ci.companyName) : lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</p>
         </div>
-        <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${esc(p?.buildingName)}</h2>
-        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${esc(from)} → ${esc(to)}</p>
+        <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${esc(p2?.buildingName || propertyLabel)}</h2>
+        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${esc(periodFrom)} → ${esc(periodTo)}</p>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("revenueBreakdown")}</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">${revRowsHtml}</table>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("expenseBreakdown")}</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">${expRowsHtml}</table>
         <div style="margin-top:18px;padding:12px 14px;border-radius:8px;background:${gray.primarySoft};display:flex;justify-content:space-between;align-items:center;">
           <span style="font-weight:700;">${t("netProfit")}</span>
-          <span style="font-weight:800;font-size:16px;color:${gray.primaryDark};">${fmtMoney(result.netProfit)} BHD</span>
+          <span style="font-weight:800;font-size:16px;color:${gray.primaryDark};">${fmtMoney(data.netProfit)} BHD</span>
         </div>
         <p style="margin-top:14px;font-size:10px;color:${gray.textSoft};">${t("depositsExcludedNote")}</p>
       </div>
@@ -8046,10 +8328,62 @@ function OwnerSettlementScreen(props) {
     `;
     setTimeout(() => window.print(), 80);
   };
+  const printSettlement = () => {
+    if (result) printData(result, properties.find(p => p.id === propertyId)?.buildingName, from, to);
+  };
+  const postSettlement = () => {
+    if (!result) return;
+    updOwnerSettlements(prev => [...prev, {
+      id: uid(),
+      propertyId,
+      from,
+      to,
+      revenueRows: result.revenueRows,
+      expenseRows: result.expenseRows,
+      totalRevenue: result.totalRevenue,
+      totalExpenses: result.totalExpenses,
+      netProfit: result.netProfit,
+      postedBy: currentUser.name,
+      postedAt: new Date().toISOString()
+    }]);
+  };
+  const mySettlements = [...ownerSettlements].sort((a, b) => (b.postedAt || "").localeCompare(a.postedAt || ""));
+  const startEdit = s => {
+    setEditingId(s.id);
+    setEditRows({
+      revenueRows: s.revenueRows.map(r => ({
+        ...r
+      })),
+      expenseRows: s.expenseRows.map(r => ({
+        ...r
+      }))
+    });
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditRows(null);
+  };
+  const saveEdit = s => {
+    const totalRevenue = editRows.revenueRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    const totalExpenses = editRows.expenseRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    updOwnerSettlements(prev => prev.map(x => x.id === s.id ? {
+      ...x,
+      revenueRows: editRows.revenueRows,
+      expenseRows: editRows.expenseRows,
+      totalRevenue,
+      totalExpenses,
+      netProfit: totalRevenue - totalExpenses
+    } : x));
+    cancelEdit();
+  };
+  const deleteSettlement = async s => {
+    if (!(await confirm(t("confirmDelete")))) return;
+    updOwnerSettlements(prev => prev.filter(x => x.id !== s.id));
+  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold mb-5"
   }, t("ownerSettlementTitle")), /*#__PURE__*/React.createElement("div", {
-    className: "rounded-2xl p-4 mb-5 grid sm:grid-cols-3 gap-3",
+    className: "rounded-2xl p-4 mb-5 grid sm:grid-cols-2 gap-3",
     style: {
       background: theme.surface,
       border: `1px solid ${theme.border}`
@@ -8070,21 +8404,14 @@ function OwnerSettlementScreen(props) {
     key: p.id,
     value: p.id
   }, p.buildingName)))), /*#__PURE__*/React.createElement(Field, {
-    label: t("from"),
-    required: true
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    style: inputStyle(theme),
-    value: from,
-    onChange: e => setFrom(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: t("to"),
-    required: true
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    style: inputStyle(theme),
-    value: to,
-    onChange: e => setTo(e.target.value)
+    label: t("period")
+  }, /*#__PURE__*/React.createElement(QuickDateFilter, {
+    theme: theme,
+    t: t,
+    from: from,
+    to: to,
+    setFrom: setFrom,
+    setTo: setTo
   }))), /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: generate,
@@ -8170,13 +8497,151 @@ function OwnerSettlementScreen(props) {
     style: {
       color: theme.textSoft
     }
-  }, t("depositsExcludedNote")), /*#__PURE__*/React.createElement(Btn, {
+  }, t("depositsExcludedNote")), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: postSettlement
+  }, /*#__PURE__*/React.createElement(ClipboardList, {
+    size: 16
+  }), t("postSettlement")), /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     variant: "outline",
     onClick: printSettlement
   }, /*#__PURE__*/React.createElement(Printer, {
     size: 16
-  }), t("print"), "/", t("exportPdf"))));
+  }), t("print"), "/", t("exportPdf")))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold text-sm mb-3"
+  }, t("settlementHistory"), " (", mySettlements.length, ")"), mySettlements.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    theme: theme,
+    text: t("noSettlementsYet")
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, mySettlements.map(s => {
+    const p = properties.find(x => x.id === s.propertyId);
+    const isEditing = editingId === s.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      className: "rounded-2xl overflow-hidden",
+      style: {
+        background: theme.surface,
+        border: `1px solid ${theme.border}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "p-3.5 flex items-center justify-between flex-wrap gap-2"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "font-medium text-sm"
+    }, p?.buildingName, " — ", s.from, " → ", s.to), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs",
+      style: {
+        color: theme.textSoft
+      }
+    }, t("postedBy"), ": ", s.postedBy || "—", " · ", s.postedAt ? new Date(s.postedAt).toLocaleString(lang === "ar" ? "ar-BH" : "en-GB") : "")), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "font-semibold text-sm",
+      style: {
+        color: s.netProfit >= 0 ? theme.success : theme.danger
+      }
+    }, fmtMoney(s.netProfit), " BHD"), !isEditing && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      onClick: () => printData({
+        revenueRows: s.revenueRows,
+        expenseRows: s.expenseRows,
+        netProfit: s.netProfit
+      }, p?.buildingName, s.from, s.to),
+      title: t("print"),
+      style: {
+        color: theme.primary
+      }
+    }, /*#__PURE__*/React.createElement(Printer, {
+      size: 15
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => startEdit(s),
+      title: t("edit"),
+      style: {
+        color: theme.textSoft
+      }
+    }, /*#__PURE__*/React.createElement(Edit2, {
+      size: 15
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => deleteSettlement(s),
+      title: t("delete"),
+      style: {
+        color: theme.danger
+      }
+    }, /*#__PURE__*/React.createElement(Trash2, {
+      size: 15
+    }))))), isEditing && /*#__PURE__*/React.createElement("div", {
+      className: "p-3.5 space-y-3",
+      style: {
+        borderTop: `1px solid ${theme.border}`,
+        background: theme.bg
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-xs font-semibold mb-1",
+      style: {
+        color: theme.primaryDark
+      }
+    }, t("revenueBreakdown")), editRows.revenueRows.map((r, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "flex items-center gap-2 mb-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs flex-1"
+    }, r.label), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      style: {
+        ...inputStyle(theme),
+        width: 120
+      },
+      value: r.amount,
+      onChange: e => setEditRows(prev => ({
+        ...prev,
+        revenueRows: prev.revenueRows.map((x, xi) => xi === i ? {
+          ...x,
+          amount: Number(e.target.value)
+        } : x)
+      }))
+    })))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-xs font-semibold mb-1",
+      style: {
+        color: theme.primaryDark
+      }
+    }, t("expenseBreakdown")), editRows.expenseRows.map((r, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "flex items-center gap-2 mb-1"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs flex-1"
+    }, r.label), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      style: {
+        ...inputStyle(theme),
+        width: 120
+      },
+      value: r.amount,
+      onChange: e => setEditRows(prev => ({
+        ...prev,
+        expenseRows: prev.expenseRows.map((x, xi) => xi === i ? {
+          ...x,
+          amount: Number(e.target.value)
+        } : x)
+      }))
+    })))), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-2"
+    }, /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      onClick: () => saveEdit(s)
+    }, /*#__PURE__*/React.createElement(Check, {
+      size: 14
+    }), t("saveChanges")), /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "outline",
+      onClick: cancelEdit
+    }, t("cancel")))));
+  }))));
 }
 
 /* ============================== AUDIT LOG ============================== */
@@ -8201,6 +8666,10 @@ const AUDIT_TABLE_LABELS = {
   properties: {
     ar: "العقارات",
     en: "Properties"
+  },
+  ownerSettlements: {
+    ar: "تسويات مالك العقار",
+    en: "Owner Settlements"
   }
 };
 function AuditLogScreen({
