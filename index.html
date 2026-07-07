@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.6";
+const APP_VERSION = "1.26.7";
 const THEMES = {
   orange: {
     name: {
@@ -641,6 +641,26 @@ const T = {
     ar: "الهاتف",
     en: "Phone"
   },
+  phone2: {
+    ar: "هاتف ثاني (اختياري)",
+    en: "Second Phone (optional)"
+  },
+  missingTenantName: {
+    ar: "لازم تكتب اسم المستأجر",
+    en: "Please enter the tenant's name"
+  },
+  missingPhone: {
+    ar: "لازم تدخل رقم الهاتف",
+    en: "Please enter the phone number"
+  },
+  undoTermination: {
+    ar: "تراجع عن الفسخ",
+    en: "Undo Termination"
+  },
+  undoTerminationUnitConflict: {
+    ar: "ما يمكن التراجع عن الفسخ — الوحدة صار عليها عقد ساري لمستأجر ثاني",
+    en: "Can't undo the termination — this unit now has an active contract with a different tenant"
+  },
   email: {
     ar: "البريد الإلكتروني",
     en: "Email"
@@ -1025,6 +1045,34 @@ const T = {
   returnedAmount: {
     ar: "المبلغ المرجّع",
     en: "Returned Amount"
+  },
+  depositEditNote: {
+    ar: "ملاحظة: تعديل التسوية هنا يصحح السجل نفسه بس، ما يعدّل تلقائياً أي إيراد سابق كان اتسجل وقت التسوية الأصلية (مثل تعويض ضرر).",
+    en: "Note: editing here corrects the settlement record itself only, and does not automatically adjust any revenue entry created during the original settlement (e.g. damage compensation)."
+  },
+  heldDepositsInfo: {
+    ar: "إجمالي التأمينات المحتجزة حالياً لهذا المبنى (لغاية اليوم)",
+    en: "Total deposits currently held for this building (as of today)"
+  },
+  employeePermissions: {
+    ar: "صلاحيات الموظفين",
+    en: "Employee Permissions"
+  },
+  employeePermissionsNote: {
+    ar: "تتحكم هنا بالشاشات والإجراءات اللي يقدر الموظفون يشوفونها أو يسوونها — تنطبق على كل الموظفين مع بعض. حسابك كمدير دائماً عنده صلاحية كاملة بكل شي.",
+    en: "Control here which screens and actions employees can see or perform — applies to all employees together. Your manager account always has full access to everything."
+  },
+  screenVisibility: {
+    ar: "ظهور الشاشات",
+    en: "Screen Visibility"
+  },
+  screenActions: {
+    ar: "صلاحيات الإجراءات",
+    en: "Action Permissions"
+  },
+  savePermissions: {
+    ar: "حفظ الصلاحيات",
+    en: "Save Permissions"
   },
   deductedAmount: {
     ar: "المبلغ المخصوم",
@@ -2129,6 +2177,7 @@ const TABLES = {
       passport_no: t.passportNo || null,
       id_no: t.idNo || null,
       phone: t.phone || null,
+      phone2: t.phone2 || null,
       email: t.email || null
     }),
     toJs: r => ({
@@ -2138,6 +2187,7 @@ const TABLES = {
       passportNo: r.passport_no,
       idNo: r.id_no,
       phone: r.phone,
+      phone2: r.phone2,
       email: r.email
     })
   },
@@ -2371,6 +2421,7 @@ const TABLES = {
       total_revenue: s.totalRevenue,
       total_expenses: s.totalExpenses,
       net_profit: s.netProfit,
+      held_deposits_total: s.heldDepositsTotal || 0,
       posted_by: s.postedBy,
       posted_at: s.postedAt
     }),
@@ -2384,8 +2435,20 @@ const TABLES = {
       totalRevenue: r.total_revenue,
       totalExpenses: r.total_expenses,
       netProfit: r.net_profit,
+      heldDepositsTotal: r.held_deposits_total,
       postedBy: r.posted_by,
       postedAt: r.posted_at
+    })
+  },
+  screenPermissions: {
+    table: "screen_permissions",
+    toRow: p => ({
+      id: "main",
+      config: p.config
+    }),
+    toJs: r => ({
+      id: r.id,
+      config: r.config
     })
   }
 };
@@ -2425,6 +2488,75 @@ async function loadLoginDirectory() {
   }
 }
 const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties", "ownerSettlements"]);
+const DEFAULT_PERMISSIONS = {
+  dashboard: {
+    view: false
+  },
+  search: {
+    view: true
+  },
+  forms: {
+    view: true
+  },
+  reports: {
+    view: false
+  },
+  ownerSettlement: {
+    view: false
+  },
+  auditLog: {
+    view: false
+  },
+  properties: {
+    add: false,
+    edit: false,
+    delete: false
+  },
+  units: {
+    add: false,
+    edit: false,
+    delete: false
+  },
+  tenants: {
+    add: true,
+    edit: false,
+    delete: false
+  },
+  contracts: {
+    add: true,
+    edit: false,
+    delete: false
+  },
+  revenues: {
+    add: true,
+    edit: false,
+    delete: false,
+    suspend: false
+  },
+  expenses: {
+    add: true,
+    edit: false,
+    delete: false
+  },
+  electricity: {
+    add: true,
+    edit: false,
+    delete: false,
+    suspend: false
+  },
+  deposits: {
+    add: true,
+    edit: false,
+    delete: false
+  }
+};
+
+// Managers can always do everything; employees are gated by the configured permissions.
+function can(isManager, perms, screen, action) {
+  if (isManager) return true;
+  const cfg = perms && perms[screen] || DEFAULT_PERMISSIONS[screen] || {};
+  return !!cfg[action];
+}
 let onSyncError = null; // set by the App component to surface background save failures to the user
 
 async function syncTableDiff(key, prevArr, nextArr, changedBy) {
@@ -3177,6 +3309,10 @@ function App() {
   const [companyInfo, setCompanyInfo] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
   const [ownerSettlements, setOwnerSettlements] = useState([]);
+  const [screenPermissions, setScreenPermissions] = useState([{
+    id: "main",
+    config: DEFAULT_PERMISSIONS
+  }]);
   const t = useT(lang);
   const theme = THEMES[themeKey] || THEMES.turquoise;
   useEffect(() => {
@@ -3230,7 +3366,7 @@ function App() {
       return;
     }
     (async () => {
-      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al, os] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog"), loadAllFromTable("ownerSettlements")]);
+      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al, os, sp] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog"), loadAllFromTable("ownerSettlements"), loadAllFromTable("screenPermissions")]);
       setProperties(p);
       setUnits(un);
       setTenants(tn);
@@ -3244,6 +3380,7 @@ function App() {
       if (fullUsers && fullUsers.length) setUsers(fullUsers); // now authenticated, so pin/authUserId are visible
       setAuditLog(al);
       setOwnerSettlements(os);
+      if (sp && sp.length) setScreenPermissions(sp);
       setDataLoaded(true);
     })();
   }, [session.user]);
@@ -3332,6 +3469,7 @@ function App() {
   const updDeposits = setAndSave(setDepositSettlements, "depositSettlements");
   const updTemplates = setAndSave(setTemplates, "templates");
   const updOwnerSettlements = setAndSave(setOwnerSettlements, "ownerSettlements");
+  const updScreenPermissions = setAndSave(setScreenPermissions, "screenPermissions");
   const updCompanyInfo = setAndSave(setCompanyInfo, "companyInfo");
   const dir = lang === "ar" ? "rtl" : "ltr";
   const isManager = session.user?.role === "manager";
@@ -3378,13 +3516,15 @@ function App() {
       }
     }, t("loading")));
   }
+  const perms = screenPermissions[0] && screenPermissions[0].config || DEFAULT_PERMISSIONS;
+  const canDo = (screen, action) => can(isManager, perms, screen, action);
   const GROUPS = [{
     key: "dashboard",
     label: t("dashboard"),
     icon: /*#__PURE__*/React.createElement(BarChart3, {
       size: 18
     }),
-    managerOnly: true,
+    hidden: !canDo("dashboard", "view"),
     children: [{
       key: "dashboard",
       label: t("dashboard")
@@ -3401,10 +3541,10 @@ function App() {
     }, {
       key: "tenants",
       label: t("tenants")
-    }, {
+    }, ...(canDo("search", "view") ? [{
       key: "search",
       label: t("search")
-    }]
+    }] : [])]
   }, {
     key: "accounting_group",
     label: t("accountingGroup"),
@@ -3430,16 +3570,16 @@ function App() {
     icon: /*#__PURE__*/React.createElement(SettingsIcon, {
       size: 18
     }),
-    children: [{
+    children: [...(canDo("forms", "view") ? [{
       key: "forms",
       label: t("forms")
-    }, ...(isManager ? [{
+    }] : []), ...(canDo("reports", "view") ? [{
       key: "reports",
       label: t("reports")
-    }] : []), ...(isManager ? [{
+    }] : []), ...(canDo("ownerSettlement", "view") ? [{
       key: "ownerSettlement",
       label: t("ownerSettlement")
-    }] : []), ...(isManager ? [{
+    }] : []), ...(canDo("auditLog", "view") ? [{
       key: "auditLog",
       label: t("auditLog")
     }] : []), ...(isManager ? [{
@@ -3450,7 +3590,7 @@ function App() {
       label: t("settings")
     }]
   }];
-  const visibleGroups = GROUPS.filter(g => !g.managerOnly || isManager);
+  const visibleGroups = GROUPS.filter(g => !g.hidden && g.children.length > 0);
   const activeGroup = visibleGroups.find(g => g.children.some(c => c.key === tab)) || visibleGroups[0];
   const goToGroup = g => setTab(g.children[0].key);
   const ctx = {
@@ -3489,7 +3629,10 @@ function App() {
     revenuePrefill,
     setRevenuePrefill,
     tenantFilePrefill,
-    setTenantFilePrefill
+    setTenantFilePrefill,
+    perms,
+    canDo,
+    updScreenPermissions
   };
   return /*#__PURE__*/React.createElement(DialogCtx.Provider, {
     value: dialogsValue
@@ -3644,7 +3787,7 @@ function App() {
       background: tab === c.key ? theme.primary : theme.primarySoft,
       color: tab === c.key ? "#fff" : theme.primaryDark
     }
-  }, c.label))), tab === "dashboard" && isManager && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && isManager && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && isManager && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "auditLog" && isManager && /*#__PURE__*/React.createElement(AuditLogScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
+  }, c.label))), tab === "dashboard" && canDo("dashboard", "view") && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && canDo("search", "view") && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && canDo("forms", "view") && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && canDo("reports", "view") && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && canDo("ownerSettlement", "view") && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "auditLog" && canDo("auditLog", "view") && /*#__PURE__*/React.createElement(AuditLogScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
     theme: theme,
     t: t,
     lang: lang,
@@ -3689,6 +3832,8 @@ function App() {
     updCompanyInfo: updCompanyInfo,
     ownerSettlements: ownerSettlements,
     updOwnerSettlements: updOwnerSettlements,
+    perms: perms,
+    updScreenPermissions: updScreenPermissions,
     currentUser: session.user
   }))), /*#__PURE__*/React.createElement(DialogHost, {
     theme: theme,
@@ -3816,7 +3961,7 @@ function LoginScreen({
   }, users.map(u => /*#__PURE__*/React.createElement("option", {
     key: u.id,
     value: u.id
-  }, u.name, " — ", t(u.role))))), /*#__PURE__*/React.createElement(Field, {
+  }, u.name)))), /*#__PURE__*/React.createElement(Field, {
     label: t("pin")
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative"
@@ -3893,7 +4038,7 @@ function Dashboard(props) {
   }, [propFilter, units]);
   const revFiltered = revenues.filter(r => r.status !== "suspended" && (!filteredUnitIds || (r.unitId ? filteredUnitIds.has(r.unitId) : r.propertyId === propFilter)));
   const expFiltered = expenses.filter(e => !filteredUnitIds || (e.unitId ? filteredUnitIds.has(e.unitId) : e.propertyId === propFilter));
-  const totalRevenue = revFiltered.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalRevenue = revFiltered.filter(r => r.category !== "deposit_payment").reduce((s, r) => s + Number(r.amount || 0), 0);
   const totalExpenses = expFiltered.reduce((s, e) => s + Number(e.amount || 0), 0);
   const net = totalRevenue - totalExpenses;
   const activeContracts = contracts.filter(c => c.status === "active");
@@ -4285,7 +4430,8 @@ function PropertiesScreen({
   contracts,
   tenants,
   setTab,
-  setTenantFilePrefill
+  setTenantFilePrefill,
+  canDo
 }) {
   const {
     confirm,
@@ -4347,7 +4493,7 @@ function PropertiesScreen({
     className: "flex items-center justify-between mb-5"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold"
-  }, t("properties")), isManager && /*#__PURE__*/React.createElement(Btn, {
+  }, t("properties")), canDo("properties", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: () => {
       setEditProp(null);
@@ -4413,7 +4559,7 @@ function PropertiesScreen({
       className: "font-medium text-sm"
     }, t("units")), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2"
-    }, isManager && /*#__PURE__*/React.createElement(Btn, {
+    }, canDo("units", "add") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       variant: "outline",
       small: true,
@@ -4423,7 +4569,7 @@ function PropertiesScreen({
       }
     }, /*#__PURE__*/React.createElement(Plus, {
       size: 14
-    }), t("addUnit")), isManager && /*#__PURE__*/React.createElement(Btn, {
+    }), t("addUnit")), canDo("properties", "edit") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       variant: "ghost",
       small: true,
@@ -4433,7 +4579,7 @@ function PropertiesScreen({
       }
     }, /*#__PURE__*/React.createElement(Edit2, {
       size: 13
-    }), t("edit")), isManager && /*#__PURE__*/React.createElement(Btn, {
+    }), t("edit")), canDo("properties", "delete") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       variant: "danger",
       small: true,
@@ -4483,9 +4629,9 @@ function PropertiesScreen({
           background: theme.primarySoft,
           color: theme.primaryDark
         }
-      }, tenant.name, " ", activeContract.contractNo ? `· ${activeContract.contractNo}` : ""), isManager && /*#__PURE__*/React.createElement("div", {
+      }, tenant.name, " ", activeContract.contractNo ? `· ${activeContract.contractNo}` : ""), (canDo("units", "edit") || canDo("units", "delete")) && /*#__PURE__*/React.createElement("div", {
         className: "flex gap-1.5"
-      }, /*#__PURE__*/React.createElement("button", {
+      }, canDo("units", "edit") && /*#__PURE__*/React.createElement("button", {
         onClick: () => {
           setEditUnit(u);
           setShowUnitModal(p.id);
@@ -4495,7 +4641,7 @@ function PropertiesScreen({
         }
       }, /*#__PURE__*/React.createElement(Edit2, {
         size: 14
-      })), /*#__PURE__*/React.createElement("button", {
+      })), canDo("units", "delete") && /*#__PURE__*/React.createElement("button", {
         onClick: () => deleteUnit(u.id),
         style: {
           color: theme.danger
@@ -4692,7 +4838,8 @@ function TenantsScreen(props) {
     updDeposits,
     currentUser,
     tenantFilePrefill,
-    setTenantFilePrefill
+    setTenantFilePrefill,
+    canDo
   } = props;
   const {
     confirm,
@@ -4824,11 +4971,24 @@ function TenantsScreen(props) {
       terminationDate: terminationDate || todayISO()
     } : c));
   };
+  const undoTermination = contract => {
+    const conflict = contracts.some(c => c.unitId === contract.unitId && c.status === "active" && c.id !== contract.id);
+    if (conflict) {
+      notify(t("undoTerminationUnitConflict"));
+      return;
+    }
+    updContracts(prev => prev.map(c => c.id === contract.id ? {
+      ...c,
+      status: "active",
+      terminationReason: null,
+      terminationDate: null
+    } : c));
+  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-5"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold"
-  }, t("tenants")), /*#__PURE__*/React.createElement(Btn, {
+  }, t("tenants")), canDo("tenants", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: () => {
       setEditTenant(null);
@@ -4868,7 +5028,7 @@ function TenantsScreen(props) {
         style: {
           color: theme.textSoft
         }
-      }, tn.phone, " ", tn.email ? "· " + tn.email : ""), /*#__PURE__*/React.createElement("p", {
+      }, tn.phone, tn.phone2 ? " / " + tn.phone2 : "", " ", tn.email ? "· " + tn.email : ""), /*#__PURE__*/React.createElement("p", {
         className: "text-xs",
         style: {
           color: theme.textSoft
@@ -4890,14 +5050,14 @@ function TenantsScreen(props) {
         onClick: () => setSelectedTenant(tn)
       }, /*#__PURE__*/React.createElement(Eye, {
         size: 13
-      }), t("tenantFile")), !active && /*#__PURE__*/React.createElement(Btn, {
+      }), t("tenantFile")), !active && canDo("contracts", "add") && /*#__PURE__*/React.createElement(Btn, {
         theme: theme,
         variant: "outline",
         small: true,
         onClick: () => setShowContractModal(tn.id)
       }, /*#__PURE__*/React.createElement(Plus, {
         size: 13
-      }), t("addContract")), isManager && /*#__PURE__*/React.createElement(Btn, {
+      }), t("addContract")), canDo("tenants", "edit") && /*#__PURE__*/React.createElement(Btn, {
         theme: theme,
         variant: "ghost",
         small: true,
@@ -4907,7 +5067,7 @@ function TenantsScreen(props) {
         }
       }, /*#__PURE__*/React.createElement(Edit2, {
         size: 13
-      })), isManager && tContracts.length === 0 && /*#__PURE__*/React.createElement(Btn, {
+      })), canDo("tenants", "delete") && tContracts.length === 0 && /*#__PURE__*/React.createElement(Btn, {
         theme: theme,
         variant: "danger",
         small: true,
@@ -4994,7 +5154,8 @@ function TenantsScreen(props) {
     onHardDeleteContract: c => setHardDeleteTarget({
       type: "contract",
       item: c
-    })
+    }),
+    onUndoTermination: undoTermination
   }), renewContract && /*#__PURE__*/React.createElement(ContractFormModal, {
     theme: theme,
     t: t,
@@ -5033,18 +5194,33 @@ function TenantFormModal({
   onClose,
   onSave
 }) {
+  const {
+    notify
+  } = useDialogs();
   const [form, setForm] = useState(initial || {
     name: "",
     nationality: "",
     passportNo: "",
     idNo: "",
     phone: "",
+    phone2: "",
     email: ""
   });
   const set = k => e => setForm(f => ({
     ...f,
     [k]: e.target.value
   }));
+  const submit = () => {
+    if (!form.name) {
+      notify(t("missingTenantName"));
+      return;
+    }
+    if (!form.phone) {
+      notify(t("missingPhone"));
+      return;
+    }
+    onSave(form);
+  };
   return /*#__PURE__*/React.createElement(Modal, {
     theme: theme,
     title: initial ? t("edit") : t("addTenant"),
@@ -5087,6 +5263,12 @@ function TenantFormModal({
     value: form.phone,
     onChange: set("phone")
   })), /*#__PURE__*/React.createElement(Field, {
+    label: t("phone2")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: form.phone2 || "",
+    onChange: set("phone2")
+  })), /*#__PURE__*/React.createElement(Field, {
     label: t("email")
   }, /*#__PURE__*/React.createElement("input", {
     style: inputStyle(theme),
@@ -5096,7 +5278,7 @@ function TenantFormModal({
     className: "flex gap-2 mt-3"
   }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
-    onClick: () => form.name && form.phone && onSave(form)
+    onClick: submit
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
   }), t("save")), /*#__PURE__*/React.createElement(Btn, {
@@ -5324,7 +5506,9 @@ function TenantFileModal({
   onTerminate,
   updContracts,
   focusContractId,
-  onHardDeleteContract
+  onHardDeleteContract,
+  canDo,
+  onUndoTermination
 }) {
   const {
     notify
@@ -5518,21 +5702,28 @@ function TenantFileModal({
       }
     }, t("electricityBalance"), ": ", fmtSigned(lastElec.resultingBalance))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-2 mt-2"
-    }, c.status === "active" && isManager && /*#__PURE__*/React.createElement(Btn, {
+    }, c.status === "active" && canDo("contracts", "edit") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "outline",
       onClick: () => onRenew(c)
     }, /*#__PURE__*/React.createElement(RefreshCw, {
       size: 13
-    }), t("renew")), c.status === "active" && isManager && /*#__PURE__*/React.createElement(Btn, {
+    }), t("renew")), c.status === "active" && canDo("contracts", "edit") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "danger",
       onClick: () => setTerminating(c)
     }, /*#__PURE__*/React.createElement(Ban, {
       size: 13
-    }), t("terminate")), isManager && /*#__PURE__*/React.createElement(Btn, {
+    }), t("terminate")), c.status === "terminated" && isManager && /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "outline",
+      onClick: () => onUndoTermination(c)
+    }, /*#__PURE__*/React.createElement(RefreshCw, {
+      size: 13
+    }), t("undoTermination")), isManager && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "danger",
@@ -5806,7 +5997,8 @@ function RevenuesScreen(props) {
     updRevenues,
     currentUser,
     revenuePrefill,
-    setRevenuePrefill
+    setRevenuePrefill,
+    canDo
   } = props;
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -5903,7 +6095,7 @@ function RevenuesScreen(props) {
     className: "flex items-center justify-between mb-5"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold"
-  }, t("revenues")), /*#__PURE__*/React.createElement(Btn, {
+  }, t("revenues")), canDo("revenues", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: () => {
       setEditing(null);
@@ -5978,7 +6170,7 @@ function RevenuesScreen(props) {
       title: t("printReceipt")
     }, /*#__PURE__*/React.createElement(Printer, {
       size: 14
-    })), isManager && /*#__PURE__*/React.createElement("button", {
+    })), canDo("revenues", "edit") && /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setEditing(r);
         setShowModal(true);
@@ -5989,7 +6181,7 @@ function RevenuesScreen(props) {
       title: t("edit")
     }, /*#__PURE__*/React.createElement(Edit2, {
       size: 14
-    })), isManager && /*#__PURE__*/React.createElement("button", {
+    })), canDo("revenues", "suspend") && /*#__PURE__*/React.createElement("button", {
       onClick: () => toggleSuspend(r),
       style: {
         color: suspended ? theme.success : theme.warning
@@ -6374,7 +6566,8 @@ function ExpensesScreen(props) {
     properties,
     units,
     updExpenses,
-    currentUser
+    currentUser,
+    canDo
   } = props;
   const {
     confirm
@@ -6417,7 +6610,7 @@ function ExpensesScreen(props) {
     className: "flex items-center justify-between mb-5"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-xl font-bold"
-  }, t("expenses")), /*#__PURE__*/React.createElement(Btn, {
+  }, t("expenses")), canDo("expenses", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: () => setShowModal(true)
   }, /*#__PURE__*/React.createElement(Plus, {
@@ -6516,7 +6709,7 @@ function ExpensesScreen(props) {
       className: "p-2.5 font-medium"
     }, fmtMoney(e.amount)), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
-    }, e.autoGenerated ? t("auto") : e.addedBy), isManager && /*#__PURE__*/React.createElement("td", {
+    }, e.autoGenerated ? t("auto") : e.addedBy), canDo("expenses", "delete") && /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
     }, !e.autoGenerated && /*#__PURE__*/React.createElement("button", {
       onClick: () => del(e.id),
@@ -6729,7 +6922,8 @@ function ElectricityScreen(props) {
     updElec,
     updExpenses,
     updRevenues,
-    currentUser
+    currentUser,
+    canDo
   } = props;
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -6897,13 +7091,13 @@ function ElectricityScreen(props) {
     className: "text-xl font-bold"
   }, t("electricity")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement(Btn, {
+  }, canDo("electricity", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     variant: "outline",
     onClick: () => setShowBulk(true)
   }, /*#__PURE__*/React.createElement(ClipboardList, {
     size: 16
-  }), t("bulkEntry")), /*#__PURE__*/React.createElement(Btn, {
+  }), t("bulkEntry")), canDo("electricity", "add") && /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     onClick: () => {
       setEditing(null);
@@ -7032,12 +7226,12 @@ function ElectricityScreen(props) {
       className: "p-2.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-1.5"
-    }, e.tenantOwes > 0 && e.status !== "collected" && !suspended && isManager && /*#__PURE__*/React.createElement(Btn, {
+    }, e.tenantOwes > 0 && e.status !== "collected" && !suspended && canDo("electricity", "edit") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "outline",
       onClick: () => collect(e)
-    }, t("collectExcess")), isManager && /*#__PURE__*/React.createElement("button", {
+    }, t("collectExcess")), canDo("electricity", "edit") && /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setEditing(e);
         setShowModal(true);
@@ -7048,7 +7242,7 @@ function ElectricityScreen(props) {
       title: t("edit")
     }, /*#__PURE__*/React.createElement(Edit2, {
       size: 14
-    })), isManager && /*#__PURE__*/React.createElement("button", {
+    })), canDo("electricity", "suspend") && /*#__PURE__*/React.createElement("button", {
       onClick: () => toggleSuspend(e),
       style: {
         color: suspended ? theme.success : theme.warning
@@ -7364,9 +7558,11 @@ function DepositsScreen(props) {
     updRevenues,
     currentUser,
     setTab,
-    setRevenuePrefill
+    setRevenuePrefill,
+    canDo
   } = props;
   const [settling, setSettling] = useState(null);
+  const [editingSettlement, setEditingSettlement] = useState(null); // the deposit_settlements record being edited
   const [filterProperty, setFilterProperty] = useState("");
   const [filterUnit, setFilterUnit] = useState("");
   const [filterTenant, setFilterTenant] = useState("");
@@ -7423,6 +7619,13 @@ function DepositsScreen(props) {
       }]);
     }
     setSettling(null);
+  };
+  const saveSettlementEdit = data => {
+    updDeposits(prev => prev.map(d => d.id === editingSettlement.id ? {
+      ...d,
+      ...data
+    } : d));
+    setEditingSettlement(null);
   };
   const Row = ({
     c,
@@ -7547,7 +7750,7 @@ function DepositsScreen(props) {
       }
     }, fmtMoney(c.depositAmount)), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
-    }, /*#__PURE__*/React.createElement(Btn, {
+    }, canDo("deposits", "add") && /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "outline",
@@ -7578,7 +7781,7 @@ function DepositsScreen(props) {
     return /*#__PURE__*/React.createElement(Row, {
       key: c.id,
       c: c,
-      right: (cc, paid) => canSettle && isManager ? /*#__PURE__*/React.createElement(Btn, {
+      right: (cc, paid) => canSettle && canDo("deposits", "add") ? /*#__PURE__*/React.createElement(Btn, {
         theme: theme,
         small: true,
         onClick: () => setSettling(cc),
@@ -7599,12 +7802,28 @@ function DepositsScreen(props) {
   }, settledList.map(c => /*#__PURE__*/React.createElement(Row, {
     key: c.id,
     c: c,
-    right: () => /*#__PURE__*/React.createElement(Badge, {
+    right: () => /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement(Badge, {
       theme: theme,
       tone: "success",
       text: t("settled")
-    })
-  })))), settling && /*#__PURE__*/React.createElement(DepositSettleModal, {
+    }), canDo("deposits", "edit") && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setEditingSettlement(depositSettlements.find(d => d.contractId === c.id)),
+      style: {
+        color: theme.textSoft
+      },
+      title: t("edit")
+    }, /*#__PURE__*/React.createElement(Edit2, {
+      size: 14
+    })))
+  })))), editingSettlement && /*#__PURE__*/React.createElement(DepositSettleEditModal, {
+    theme: theme,
+    t: t,
+    settlement: editingSettlement,
+    onClose: () => setEditingSettlement(null),
+    onSave: saveSettlementEdit
+  }), settling && /*#__PURE__*/React.createElement(DepositSettleModal, {
     theme: theme,
     t: t,
     contract: settling,
@@ -7690,6 +7909,87 @@ function DepositSettleModal({
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
   }), t("save")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: onClose
+  }, t("cancel"))));
+}
+function DepositSettleEditModal({
+  theme,
+  t,
+  settlement,
+  onClose,
+  onSave
+}) {
+  const [method, setMethod] = useState(settlement.method || "full_return");
+  const [returnedAmount, setReturnedAmount] = useState(settlement.returnedAmount || 0);
+  const [deductedAmount, setDeductedAmount] = useState(settlement.deductedAmount || 0);
+  const [deductionReason, setDeductionReason] = useState(settlement.deductionReason || "");
+  const submit = () => {
+    onSave({
+      method,
+      returnedAmount: Number(returnedAmount),
+      deductedAmount: Number(deductedAmount),
+      deductionReason
+    });
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    theme: theme,
+    title: `${t("edit")} — ${t("settleDeposit")}`,
+    onClose: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-3 text-sm"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    checked: method === "full_return",
+    onChange: () => setMethod("full_return")
+  }), t("fullReturn")), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    checked: method === "deducted",
+    onChange: () => setMethod("deducted")
+  }), t("deducted")), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    checked: method === "convert_to_rent",
+    onChange: () => setMethod("convert_to_rent")
+  }), t("convertToRent"))), /*#__PURE__*/React.createElement(Field, {
+    label: t("returnedAmount")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: returnedAmount,
+    onChange: e => setReturnedAmount(e.target.value)
+  })), method === "deducted" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Field, {
+    label: t("deductedAmount")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: deductedAmount,
+    onChange: e => setDeductedAmount(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("deductionReason")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: deductionReason,
+    onChange: e => setDeductionReason(e.target.value)
+  }))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mt-2",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("depositEditNote")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: submit
+  }, /*#__PURE__*/React.createElement(Check, {
+    size: 16
+  }), t("saveChanges")), /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
     variant: "outline",
     onClick: onClose
@@ -8242,7 +8542,7 @@ function ReportsScreen(props) {
     if (unitId && e.unitId !== unitId) return false;
     return true;
   });
-  const totalRev = revF.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalRev = revF.filter(r => r.category !== "deposit_payment").reduce((s, r) => s + Number(r.amount || 0), 0);
   const totalExp = expF.reduce((s, e) => s + Number(e.amount || 0), 0);
 
   // combined transaction ledger for display, respecting txType filter
@@ -8255,7 +8555,7 @@ function ReportsScreen(props) {
   })) : [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const byProperty = properties.map(p => {
     const propUnitIds = new Set(units.filter(u => u.propertyId === p.id).map(u => u.id));
-    const rev = revenues.filter(r => r.status !== "suspended" && inRange(r.date) && (r.unitId ? propUnitIds.has(r.unitId) : r.propertyId === p.id)).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const rev = revenues.filter(r => r.status !== "suspended" && r.category !== "deposit_payment" && inRange(r.date) && (r.unitId ? propUnitIds.has(r.unitId) : r.propertyId === p.id)).reduce((s, r) => s + Number(r.amount || 0), 0);
     const exp = expenses.filter(e => inRange(e.date) && e.propertyId === p.id).reduce((s, e) => s + Number(e.amount || 0), 0);
     return {
       p,
@@ -8462,6 +8762,8 @@ function OwnerSettlementScreen(props) {
     lang,
     properties,
     units,
+    contracts,
+    depositSettlements,
     revenues,
     expenses,
     companyInfo,
@@ -8520,12 +8822,17 @@ function OwnerSettlementScreen(props) {
       };
     }).filter(r => r.amount > 0);
     const totalExpenses = expenseRows.reduce((s, r) => s + r.amount, 0);
+
+    // Informational only — never enters the profit calculation, per design.
+    const settledIds = new Set(depositSettlements.map(d => d.contractId));
+    const heldDepositsTotal = contracts.filter(c => propUnitIds.has(c.unitId) && !settledIds.has(c.id)).reduce((s, c) => s + depositPaidAmount(c.id, revenues), 0);
     setResult({
       revenueRows,
       totalRevenue,
       expenseRows,
       totalExpenses,
-      netProfit: totalRevenue - totalExpenses
+      netProfit: totalRevenue - totalExpenses,
+      heldDepositsTotal
     });
   };
   const printData = (data, propertyLabel, periodFrom, periodTo) => {
@@ -8574,6 +8881,7 @@ function OwnerSettlementScreen(props) {
       totalRevenue: result.totalRevenue,
       totalExpenses: result.totalExpenses,
       netProfit: result.netProfit,
+      heldDepositsTotal: result.heldDepositsTotal,
       postedBy: currentUser.name,
       postedAt: new Date().toISOString()
     }]);
@@ -8723,7 +9031,20 @@ function OwnerSettlementScreen(props) {
     className: "font-semibold"
   }, t("netProfit")), /*#__PURE__*/React.createElement("span", {
     className: "font-bold text-lg"
-  }, fmtMoney(result.netProfit), " BHD")), /*#__PURE__*/React.createElement("p", {
+  }, fmtMoney(result.netProfit), " BHD")), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3 flex items-center justify-between",
+    style: {
+      background: theme.bg,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("heldDepositsInfo")), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-sm"
+  }, fmtMoney(result.heldDepositsTotal), " BHD")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs",
     style: {
       color: theme.textSoft
@@ -9245,7 +9566,9 @@ function SettingsScreen({
   updCompanyInfo,
   setUsers,
   ownerSettlements,
-  updOwnerSettlements
+  updOwnerSettlements,
+  perms,
+  updScreenPermissions
 }) {
   const {
     notify,
@@ -9272,6 +9595,80 @@ function SettingsScreen({
   });
   const [restoreSummary, setRestoreSummary] = useState(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [permsForm, setPermsForm] = useState(() => JSON.parse(JSON.stringify(perms || DEFAULT_PERMISSIONS)));
+  const [permsSaved, setPermsSaved] = useState(false);
+  useEffect(() => {
+    setPermsForm(JSON.parse(JSON.stringify(perms || DEFAULT_PERMISSIONS)));
+  }, [perms]);
+  const togglePerm = (screen, action) => {
+    setPermsForm(prev => ({
+      ...prev,
+      [screen]: {
+        ...prev[screen],
+        [action]: !prev[screen]?.[action]
+      }
+    }));
+  };
+  const savePerms = () => {
+    updScreenPermissions(() => [{
+      id: "main",
+      config: permsForm
+    }]);
+    setPermsSaved(true);
+    setTimeout(() => setPermsSaved(false), 2500);
+  };
+  const PERMISSION_VIEW_SCREENS = [{
+    key: "dashboard",
+    label: t("dashboard")
+  }, {
+    key: "search",
+    label: t("search")
+  }, {
+    key: "forms",
+    label: t("forms")
+  }, {
+    key: "reports",
+    label: t("reports")
+  }, {
+    key: "ownerSettlement",
+    label: t("ownerSettlement")
+  }, {
+    key: "auditLog",
+    label: t("auditLog")
+  }];
+  const PERMISSION_ACTION_SCREENS = [{
+    key: "properties",
+    label: t("properties"),
+    actions: ["add", "edit", "delete"]
+  }, {
+    key: "units",
+    label: t("units"),
+    actions: ["add", "edit", "delete"]
+  }, {
+    key: "tenants",
+    label: t("tenants"),
+    actions: ["add", "edit", "delete"]
+  }, {
+    key: "contracts",
+    label: t("contracts"),
+    actions: ["add", "edit", "delete"]
+  }, {
+    key: "revenues",
+    label: t("revenues"),
+    actions: ["add", "edit", "delete", "suspend"]
+  }, {
+    key: "expenses",
+    label: t("expenses"),
+    actions: ["add", "edit", "delete"]
+  }, {
+    key: "electricity",
+    label: t("electricity"),
+    actions: ["add", "edit", "delete", "suspend"]
+  }, {
+    key: "deposits",
+    label: t("deposits"),
+    actions: ["add", "edit", "delete"]
+  }];
   const [resetBusy, setResetBusy] = useState(false);
   const daysSinceBackup = lastBackupDate ? daysBetween(todayISO(), lastBackupDate) : null;
   const backupOverdue = daysSinceBackup === null || daysSinceBackup >= 14;
@@ -9829,6 +10226,74 @@ function SettingsScreen({
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 16
   }), t("resetProgramButton")))), isManager && /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl p-5",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3 font-semibold"
+  }, /*#__PURE__*/React.createElement(ShieldCheck, {
+    size: 17
+  }), t("employeePermissions")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mb-4",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("employeePermissionsNote")), /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-semibold mb-2",
+    style: {
+      color: theme.primaryDark
+    }
+  }, t("screenVisibility")), /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 gap-2 mb-5"
+  }, PERMISSION_VIEW_SCREENS.map(s => /*#__PURE__*/React.createElement("label", {
+    key: s.key,
+    className: "flex items-center gap-2 text-sm rounded-lg px-3 py-2",
+    style: {
+      background: theme.bg
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!permsForm[s.key]?.view,
+    onChange: () => togglePerm(s.key, "view")
+  }), s.label))), /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-semibold mb-2",
+    style: {
+      color: theme.primaryDark
+    }
+  }, t("screenActions")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-4"
+  }, PERMISSION_ACTION_SCREENS.map(s => /*#__PURE__*/React.createElement("div", {
+    key: s.key,
+    className: "rounded-xl p-3",
+    style: {
+      background: theme.bg,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium mb-2"
+  }, s.label), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-3"
+  }, s.actions.map(a => /*#__PURE__*/React.createElement("label", {
+    key: a,
+    className: "flex items-center gap-1.5 text-xs"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!permsForm[s.key]?.[a],
+    onChange: () => togglePerm(s.key, a)
+  }), t(a))))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: savePerms
+  }, /*#__PURE__*/React.createElement(Check, {
+    size: 16
+  }), t("savePermissions")), permsSaved && /*#__PURE__*/React.createElement(Badge, {
+    theme: theme,
+    tone: "success",
+    text: t("savedSuccessfully2")
+  }))), isManager && /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
       background: theme.surface,
