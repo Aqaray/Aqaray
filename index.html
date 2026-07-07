@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.7";
+const APP_VERSION = "1.26.8";
 const THEMES = {
   orange: {
     name: {
@@ -4094,25 +4094,6 @@ function Dashboard(props) {
   const elecContractIds = [...new Set(elecSettlements.map(e => e.contractId))];
   const elecComputed = elecContractIds.flatMap(cid => computeElecChain(contracts.find(x => x.id === cid), elecSettlements));
   const elecDue = elecComputed.filter(e => e.tenantOwes > 0 && e.status !== "collected" && e.status !== "suspended");
-  const propUnitMap = useMemo(() => {
-    const m = {};
-    properties.forEach(p => {
-      m[p.id] = {
-        rev: 0,
-        exp: 0
-      };
-    });
-    revenues.forEach(r => {
-      if (r.status === "suspended") return;
-      const u = units.find(x => x.id === r.unitId);
-      if (u && m[u.propertyId]) m[u.propertyId].rev += Number(r.amount || 0);
-    });
-    expenses.forEach(e => {
-      const pid = e.propertyId;
-      if (m[pid]) m[pid].exp += Number(e.amount || 0);
-    });
-    return m;
-  }, [properties, revenues, expenses, units]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center justify-between gap-3 mb-5"
   }, /*#__PURE__*/React.createElement("h2", {
@@ -4353,47 +4334,6 @@ function Dashboard(props) {
         fontWeight: 600
       }
     }, fmtMoney(remaining)));
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-6 rounded-2xl p-4",
-    style: {
-      background: theme.surface,
-      border: `1px solid ${theme.border}`
-    }
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-semibold mb-3"
-  }, t("netByProperty")), properties.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
-    theme: theme,
-    text: t("noData")
-  }) : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, properties.map(p => {
-    const d = propUnitMap[p.id] || {
-      rev: 0,
-      exp: 0
-    };
-    const n = d.rev - d.exp;
-    return /*#__PURE__*/React.createElement("div", {
-      key: p.id,
-      className: "flex items-center justify-between text-sm py-2",
-      style: {
-        borderBottom: `1px dashed ${theme.border}`
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "font-medium"
-    }, p.buildingName), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: theme.textSoft
-      }
-    }, t("totalRevenue"), ": ", fmtMoney(d.rev)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: theme.textSoft
-      }
-    }, t("totalExpenses"), ": ", fmtMoney(d.exp)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: n >= 0 ? theme.success : theme.danger,
-        fontWeight: 700
-      }
-    }, fmtMoney(n)));
   }))));
 }
 function AlertList({
