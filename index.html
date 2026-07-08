@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.12";
+const APP_VERSION = "1.26.13";
 const THEMES = {
   orange: {
     name: {
@@ -4953,6 +4953,8 @@ function TenantsScreen(props) {
     }) => {
       const tContracts = contracts.filter(c => c.tenantId === tn.id);
       const active = tContracts.find(c => c.status === "active");
+      const activeUnit = active ? units.find(u => u.id === active.unitId) : null;
+      const activeProperty = activeUnit ? properties.find(p => p.id === activeUnit.propertyId) : null;
       return /*#__PURE__*/React.createElement("div", {
         className: "rounded-2xl p-4",
         style: {
@@ -4963,7 +4965,12 @@ function TenantsScreen(props) {
         className: "flex items-start justify-between"
       }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
         className: "font-semibold"
-      }, tn.name), /*#__PURE__*/React.createElement("p", {
+      }, tn.name, activeProperty && activeUnit && /*#__PURE__*/React.createElement("span", {
+        className: "font-normal text-xs",
+        style: {
+          color: theme.primaryDark
+        }
+      }, " — ", activeProperty.buildingName, " / ", activeUnit.unitNo)), /*#__PURE__*/React.createElement("p", {
         className: "text-xs",
         style: {
           color: theme.textSoft
