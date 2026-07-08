@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.11";
+const APP_VERSION = "1.26.12";
 const THEMES = {
   orange: {
     name: {
@@ -4048,7 +4048,11 @@ function Dashboard(props) {
       byContract[o.c.id].monthsCount += 1;
       if (o.mk > byContract[o.c.id].latestMonth) byContract[o.c.id].latestMonth = o.mk;
     });
-    return Object.values(byContract).sort((a, b) => b.total - a.total);
+    // Apply any manual rent balance adjustment (opening balance corrections) before deciding what's truly still owed.
+    return Object.values(byContract).map(entry => ({
+      ...entry,
+      total: entry.total + activeBalanceFor(entry.c.id, balanceAdjustments, "rent")
+    })).filter(entry => entry.total > 0.001).sort((a, b) => b.total - a.total);
   })();
   const elecContractIds = [...new Set(elecSettlements.map(e => e.contractId))];
   const elecComputed = elecContractIds.flatMap(cid => {
