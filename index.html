@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.8";
+const APP_VERSION = "1.26.10";
 const THEMES = {
   orange: {
     name: {
@@ -866,8 +866,8 @@ const T = {
     en: "Full Program Reset"
   },
   resetProgramWarning: {
-    ar: "تحذير شديد: هذا الإجراء يمسح كل بيانات البرنامج نهائياً (كل العقارات، الوحدات، المستأجرين، العقود، الإيرادات، المصاريف، القوالب...) وكل حسابات المستخدمين الثانيين، ولا يمكن التراجع عنه أبداً. حسابك الحالي فقط يبقى.",
-    en: "Extreme warning: this wipes ALL program data permanently (all properties, units, tenants, contracts, revenues, expenses, templates...) and all other user accounts, and cannot be undone. Only your current account will remain."
+    ar: "تحذير شديد: هذا الإجراء يمسح كل بيانات البرنامج نهائياً (كل العقارات، الوحدات، المستأجرين، العقود، الإيرادات، المصاريف، تعديلات الأرصدة...) وكل حسابات المستخدمين الثانيين، ولا يمكن التراجع عنه أبداً. حسابك الحالي فقط يبقى.",
+    en: "Extreme warning: this wipes ALL program data permanently (all properties, units, tenants, contracts, revenues, expenses, balance adjustments...) and all other user accounts, and cannot be undone. Only your current account will remain."
   },
   resetProgramButton: {
     ar: "إعادة الضبط الآن",
@@ -1054,25 +1054,61 @@ const T = {
     ar: "إجمالي التأمينات المحتجزة حالياً لهذا المبنى (لغاية اليوم)",
     en: "Total deposits currently held for this building (as of today)"
   },
-  employeePermissions: {
-    ar: "صلاحيات الموظفين",
-    en: "Employee Permissions"
+  balanceAdjustments: {
+    ar: "تعديلات الأرصدة",
+    en: "Balance Adjustments"
   },
-  employeePermissionsNote: {
-    ar: "تتحكم هنا بالشاشات والإجراءات اللي يقدر الموظفون يشوفونها أو يسوونها — تنطبق على كل الموظفين مع بعض. حسابك كمدير دائماً عنده صلاحية كاملة بكل شي.",
-    en: "Control here which screens and actions employees can see or perform — applies to all employees together. Your manager account always has full access to everything."
+  balanceAdjustmentsNote: {
+    ar: "تعديلات مدين/دائن على رصيد الإيجار أو الكهرباء لأي عقد — للحالات اللي تحتاج تصحيح يدوي (زي عقود قديمة رفعتها للنظام). مدير فقط.",
+    en: "Debit/credit adjustments to a contract's rent or electricity balance — for cases needing manual correction (like legacy contracts you're onboarding). Manager only."
   },
-  screenVisibility: {
-    ar: "ظهور الشاشات",
-    en: "Screen Visibility"
+  addAdjustment: {
+    ar: "إضافة تعديل",
+    en: "Add Adjustment"
   },
-  screenActions: {
-    ar: "صلاحيات الإجراءات",
-    en: "Action Permissions"
+  adjustmentType: {
+    ar: "النوع",
+    en: "Type"
   },
-  savePermissions: {
-    ar: "حفظ الصلاحيات",
-    en: "Save Permissions"
+  adjustmentAmount: {
+    ar: "المبلغ (مدين +/ دائن -)",
+    en: "Amount (debit +/ credit -)"
+  },
+  adjustmentReason: {
+    ar: "السبب/الملاحظة",
+    en: "Reason / Note"
+  },
+  rentBalance: {
+    ar: "رصيد الإيجار",
+    en: "Rent Balance"
+  },
+  electricityBalance: {
+    ar: "رصيد الكهرباء",
+    en: "Electricity Balance"
+  },
+  migratedNote: {
+    ar: "رصيد منقول من النظام القديم",
+    en: "Balance migrated from the old system"
+  },
+  carriedOverNote: {
+    ar: "رصيد منقول من العقد السابق عند التجديد",
+    en: "Balance carried over from the previous contract upon renewal"
+  },
+  arrearsWarning: {
+    ar: "تنبيه: على هذا العقد متأخرات إيجار بقيمة",
+    en: "Warning: this contract has outstanding rent arrears of"
+  },
+  arrearsWarningConfirm: {
+    ar: "متأكد تبي تكمل التجديد رغم المتأخرات؟",
+    en: "Are you sure you want to proceed with renewal despite the arrears?"
+  },
+  editContract: {
+    ar: "تعديل العقد",
+    en: "Edit Contract"
+  },
+  contractLockedNote: {
+    ar: "ما يمكن التعديل — صدرت فاتورة الشهر الثاني على هذا العقد",
+    en: "Can't edit — the second month's invoice has already been issued for this contract"
   },
   deductedAmount: {
     ar: "المبلغ المخصوم",
@@ -1164,6 +1200,10 @@ const T = {
   manager: {
     ar: "مدير",
     en: "Manager"
+  },
+  owner: {
+    ar: "مالك",
+    en: "Owner"
   },
   employee: {
     ar: "موظف",
@@ -1298,10 +1338,6 @@ const T = {
     ar: "نوع المستند",
     en: "Document Type"
   },
-  uploadTemplateImage: {
-    ar: "رفع صورة النموذج",
-    en: "Upload Template Image"
-  },
   addField: {
     ar: "إضافة حقل",
     en: "Add Field"
@@ -1309,10 +1345,6 @@ const T = {
   dragToPosition: {
     ar: "اسحب كل حقل لمكانه الصحيح فوق النموذج، وبعدها احفظ",
     en: "Drag each field to its correct spot on the template, then save"
-  },
-  noTemplateYet: {
-    ar: "ما فيه قالب مرفوع بعد — بيستخدم البرنامج تصميم افتراضي بسيط",
-    en: "No template uploaded yet — a simple default design will be used"
   },
   useTemplate: {
     ar: "استخدام قالب مرفوع",
@@ -1409,10 +1441,6 @@ const T = {
   selectTerminatedContract: {
     ar: "اختر عقداً مفسوخاً/منتهياً",
     en: "Select a terminated/expired contract"
-  },
-  noTemplateForDoc: {
-    ar: "ارفع قالب هذا المستند أولاً من قسم قوالب الطباعة تحت",
-    en: "Upload a template for this document first from the Print Templates section below"
   },
   statementFor: {
     ar: "كشف حساب",
@@ -1824,6 +1852,14 @@ function useT(lang) {
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const monthKey = d => (d || todayISO()).slice(0, 7);
+
+// Once the tenant's second month of rent has been invoiced, the contract's core terms
+// are locked from direct editing to protect the integrity of already-issued billing history.
+function hasSecondMonthInvoice(contract, revenues) {
+  if (!contract.startDate) return false;
+  const secondMonth = addMonthsToKey(monthKey(contract.startDate), 1);
+  return revenues.some(r => r.contractId === contract.id && r.type === "rent" && r.status !== "suspended" && r.month >= secondMonth);
+}
 const fmtMoney = n => (Number(n) || 0).toFixed(3);
 const fmtSigned = n => {
   const v = Number(n) || 0;
@@ -1968,7 +2004,7 @@ function monthKeysBetween(startDateStr, endDateStr) {
 // Builds a debit/credit ledger for a tenant across all their contracts.
 // Debits: deposit due (once per contract) + monthly rent due (each elapsed month).
 // Credits: all actual payments received (any revenue linked to their contracts).
-function buildContractLedger(contract, units, revenues, lang, t) {
+function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustments) {
   const today = todayISO();
   const u = units.find(x => x.id === contract.unitId);
   const unitLabel = u ? u.unitNo : "";
@@ -1993,6 +2029,16 @@ function buildContractLedger(contract, units, revenues, lang, t) {
     });
   });
   const rentEntries = [];
+  const rentOpening = activeBalanceFor(contract.id, balanceAdjustments, "rent"); // positive = debit(owed), matches this ledger's own convention directly
+  if (rentOpening !== 0) {
+    rentEntries.push({
+      date: contract.startDate || today,
+      desc: t("openingBalance"),
+      debit: rentOpening > 0 ? rentOpening : 0,
+      credit: rentOpening < 0 ? -rentOpening : 0,
+      sortKey: (contract.startDate || today) + "-a00"
+    });
+  }
   if (contract.startDate && Number(contract.monthlyRent) > 0) {
     let boundary = contract.endDate || today;
     if (contract.status === "terminated" && contract.terminationDate) boundary = contract.terminationDate;
@@ -2046,10 +2092,10 @@ function buildContractLedger(contract, units, revenues, lang, t) {
     rent: withBalance(rentEntries)
   };
 }
-function buildElectricityLedger(contract, elecSettlements, lang, t) {
-  const chain = computeElecChain(contract, elecSettlements);
+function buildElectricityLedger(contract, elecSettlements, lang, t, balanceAdjustments) {
+  const opening = -activeBalanceFor(contract.id, balanceAdjustments, "electricity"); // our balance_adjustments store positive=debit(owed); the chain below uses positive=credit
+  const chain = computeElecChain(contract, elecSettlements, opening);
   const entries = [];
-  const opening = Number(contract.openingElecBalance || 0);
   if (opening !== 0) {
     entries.push({
       date: contract.startDate || todayISO(),
@@ -2409,6 +2455,29 @@ const TABLES = {
       createdAt: r.created_at
     })
   },
+  balanceAdjustments: {
+    table: "balance_adjustments",
+    toRow: b => ({
+      id: b.id,
+      contract_id: b.contractId,
+      type: b.type,
+      amount: b.amount,
+      reason: b.reason || null,
+      date: b.date,
+      status: b.status || "active",
+      created_by: b.createdBy || null
+    }),
+    toJs: r => ({
+      id: r.id,
+      contractId: r.contract_id,
+      type: r.type,
+      amount: r.amount,
+      reason: r.reason,
+      date: r.date,
+      status: r.status,
+      createdBy: r.created_by
+    })
+  },
   ownerSettlements: {
     table: "owner_settlements",
     toRow: s => ({
@@ -2438,17 +2507,6 @@ const TABLES = {
       heldDepositsTotal: r.held_deposits_total,
       postedBy: r.posted_by,
       postedAt: r.posted_at
-    })
-  },
-  screenPermissions: {
-    table: "screen_permissions",
-    toRow: p => ({
-      id: "main",
-      config: p.config
-    }),
-    toJs: r => ({
-      id: r.id,
-      config: r.config
     })
   }
 };
@@ -2487,75 +2545,141 @@ async function loadLoginDirectory() {
     return [];
   }
 }
-const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties", "ownerSettlements"]);
-const DEFAULT_PERMISSIONS = {
-  dashboard: {
-    view: false
+const AUDITED_TABLES = new Set(["revenues", "expenses", "contracts", "tenants", "properties", "ownerSettlements", "balanceAdjustments"]);
+
+// Fixed 3-tier role model: manager (full access) > owner (everything except admin setup tasks) > employee (day-to-day only, no delete).
+const ROLE_PERMS = {
+  owner: {
+    dashboard: {
+      view: true
+    },
+    search: {
+      view: true
+    },
+    forms: {
+      view: true
+    },
+    reports: {
+      view: true
+    },
+    ownerSettlement: {
+      view: true
+    },
+    auditLog: {
+      view: true
+    },
+    properties: {
+      add: true,
+      edit: true,
+      delete: true
+    },
+    units: {
+      add: true,
+      edit: true,
+      delete: true
+    },
+    tenants: {
+      add: true,
+      edit: true,
+      delete: true
+    },
+    contracts: {
+      add: true,
+      edit: true,
+      delete: true
+    },
+    revenues: {
+      add: true,
+      edit: true,
+      delete: true,
+      suspend: true
+    },
+    expenses: {
+      add: true,
+      edit: true,
+      delete: true
+    },
+    electricity: {
+      add: true,
+      edit: true,
+      delete: true,
+      suspend: true
+    },
+    deposits: {
+      add: true,
+      edit: true,
+      delete: true
+    }
   },
-  search: {
-    view: true
-  },
-  forms: {
-    view: true
-  },
-  reports: {
-    view: false
-  },
-  ownerSettlement: {
-    view: false
-  },
-  auditLog: {
-    view: false
-  },
-  properties: {
-    add: false,
-    edit: false,
-    delete: false
-  },
-  units: {
-    add: false,
-    edit: false,
-    delete: false
-  },
-  tenants: {
-    add: true,
-    edit: false,
-    delete: false
-  },
-  contracts: {
-    add: true,
-    edit: false,
-    delete: false
-  },
-  revenues: {
-    add: true,
-    edit: false,
-    delete: false,
-    suspend: false
-  },
-  expenses: {
-    add: true,
-    edit: false,
-    delete: false
-  },
-  electricity: {
-    add: true,
-    edit: false,
-    delete: false,
-    suspend: false
-  },
-  deposits: {
-    add: true,
-    edit: false,
-    delete: false
+  employee: {
+    dashboard: {
+      view: true
+    },
+    search: {
+      view: true
+    },
+    forms: {
+      view: true
+    },
+    reports: {
+      view: false
+    },
+    ownerSettlement: {
+      view: false
+    },
+    auditLog: {
+      view: false
+    },
+    properties: {
+      add: false,
+      edit: false,
+      delete: false
+    },
+    units: {
+      add: false,
+      edit: false,
+      delete: false
+    },
+    tenants: {
+      add: true,
+      edit: false,
+      delete: false
+    },
+    contracts: {
+      add: true,
+      edit: false,
+      delete: false
+    },
+    revenues: {
+      add: true,
+      edit: false,
+      delete: false,
+      suspend: false
+    },
+    expenses: {
+      add: true,
+      edit: false,
+      delete: false
+    },
+    electricity: {
+      add: true,
+      edit: false,
+      delete: false,
+      suspend: false
+    },
+    deposits: {
+      add: true,
+      edit: false,
+      delete: false
+    }
   }
 };
 
-// Managers can always do everything; employees are gated by the configured permissions.
-function can(isManager, perms, screen, action) {
-  if (isManager) return true;
-  const cfg = perms && perms[screen] || DEFAULT_PERMISSIONS[screen] || {};
-  return !!cfg[action];
+// Managers (admins) can always do everything; owner/employee are gated by the fixed role table above.
+function can(role, screen, action) {
+  if (role === "manager") return true;
+  const cfg = ROLE_PERMS[role]?.[screen];
+  return !!(cfg && cfg[action]);
 }
 let onSyncError = null; // set by the App component to surface background save failures to the user
 
@@ -2670,7 +2794,8 @@ function Btn({
   theme,
   type = "button",
   small,
-  disabled
+  disabled,
+  title
 }) {
   const styles = {
     primary: {
@@ -2698,6 +2823,7 @@ function Btn({
     type: type,
     disabled: disabled,
     onClick: onClick,
+    title: title,
     className: "inline-flex items-center gap-1.5 rounded-lg font-medium transition-opacity hover:opacity-85",
     style: {
       ...styles[variant],
@@ -3060,182 +3186,10 @@ function printDefaultDocument({
   setTimeout(() => window.print(), 80);
 }
 function title2(docType, t) {
-  return docType === "receipt" ? t("printReceipt") : t("rentInvoice");
-}
-
-/* ============================== TEMPLATE PRINTING (upload-a-template feature) ============================== */
-
-const TEMPLATE_DOC_TYPES = [{
-  key: "rent_invoice",
-  ar: "فاتورة تسديد إيجار",
-  en: "Rent Payment Invoice"
-}, {
-  key: "receipt",
-  ar: "إيصال قبض",
-  en: "Receipt"
-}, {
-  key: "contract",
-  ar: "عقد الإيجار",
-  en: "Rent Contract"
-}, {
-  key: "termination",
-  ar: "إشعار فسخ العقد",
-  en: "Contract Termination Notice"
-}];
-const TEMPLATE_FIELD_DEFS = {
-  rent_invoice: [{
-    key: "tenantName",
-    ar: "اسم المستأجر",
-    en: "Tenant Name"
-  }, {
-    key: "buildingName",
-    ar: "اسم المبنى",
-    en: "Building Name"
-  }, {
-    key: "unitNo",
-    ar: "رقم الوحدة",
-    en: "Unit No"
-  }, {
-    key: "month",
-    ar: "الشهر",
-    en: "Month"
-  }, {
-    key: "requiredAmount",
-    ar: "المبلغ المطلوب",
-    en: "Required Amount"
-  }, {
-    key: "paidAmount",
-    ar: "المبلغ المسدد",
-    en: "Paid Amount"
-  }, {
-    key: "remainingAmount",
-    ar: "المبلغ المتبقي",
-    en: "Remaining Amount"
-  }, {
-    key: "date",
-    ar: "التاريخ",
-    en: "Date"
-  }],
-  receipt: [{
-    key: "tenantName",
-    ar: "اسم المستأجر/الجهة",
-    en: "Tenant / Party Name"
-  }, {
-    key: "propertyUnit",
-    ar: "العقار/الوحدة",
-    en: "Property / Unit"
-  }, {
-    key: "revenueType",
-    ar: "نوع الإيراد",
-    en: "Revenue Type"
-  }, {
-    key: "amount",
-    ar: "المبلغ",
-    en: "Amount"
-  }, {
-    key: "paymentMethod",
-    ar: "طريقة الدفع",
-    en: "Payment Method"
-  }, {
-    key: "date",
-    ar: "التاريخ",
-    en: "Date"
-  }, {
-    key: "notes",
-    ar: "ملاحظات",
-    en: "Notes"
-  }],
-  contract: [{
-    key: "tenantName",
-    ar: "اسم المستأجر",
-    en: "Tenant Name"
-  }, {
-    key: "nationality",
-    ar: "الجنسية",
-    en: "Nationality"
-  }, {
-    key: "idNo",
-    ar: "رقم الهوية/الجواز",
-    en: "ID / Passport No"
-  }, {
-    key: "phone",
-    ar: "الهاتف",
-    en: "Phone"
-  }, {
-    key: "buildingName",
-    ar: "اسم المبنى",
-    en: "Building Name"
-  }, {
-    key: "unitNo",
-    ar: "رقم الوحدة",
-    en: "Unit No"
-  }, {
-    key: "startDate",
-    ar: "تاريخ البداية",
-    en: "Start Date"
-  }, {
-    key: "endDate",
-    ar: "تاريخ النهاية",
-    en: "End Date"
-  }, {
-    key: "monthlyRent",
-    ar: "الإيجار الشهري",
-    en: "Monthly Rent"
-  }, {
-    key: "depositAmount",
-    ar: "قيمة التأمين",
-    en: "Deposit Amount"
-  }, {
-    key: "electricityLimit",
-    ar: "حد استهلاك الكهرباء",
-    en: "Electricity Limit"
-  }],
-  termination: [{
-    key: "tenantName",
-    ar: "اسم المستأجر",
-    en: "Tenant Name"
-  }, {
-    key: "buildingName",
-    ar: "اسم المبنى",
-    en: "Building Name"
-  }, {
-    key: "unitNo",
-    ar: "رقم الوحدة",
-    en: "Unit No"
-  }, {
-    key: "terminationDate",
-    ar: "تاريخ الفسخ",
-    en: "Termination Date"
-  }, {
-    key: "terminationReason",
-    ar: "سبب الفسخ",
-    en: "Termination Reason"
-  }, {
-    key: "date",
-    ar: "التاريخ",
-    en: "Date"
-  }]
-};
-async function loadTemplateImage(templateId) {
-  try {
-    const {
-      data,
-      error
-    } = await sb.from("templates").select("image_data").eq("id", templateId).maybeSingle();
-    if (error || !data) return null;
-    return data.image_data || null;
-  } catch (e) {
-    return null;
-  }
-}
-function printWithTemplate(title, imageDataUrl, fields, values) {
-  const area = ensurePrintArea();
-  const overlays = fields.map(f => `
-    <div style="position:absolute;left:${f.xPct}%;top:${f.yPct}%;font-size:${f.fontSize || 14}px;color:#111;white-space:nowrap;transform:translate(0,-50%);">
-      ${esc(values[f.key] ?? "")}
-    </div>`).join("");
-  area.innerHTML = `<div class="page"><img src="${esc(imageDataUrl)}" />${overlays}</div>`;
-  setTimeout(() => window.print(), 120);
+  if (docType === "receipt") return t("printReceipt");
+  if (docType === "contract") return t("contractDoc");
+  if (docType === "termination") return t("terminationDoc");
+  return t("rentInvoice");
 }
 
 /* ============================== MAIN APP ============================== */
@@ -3309,10 +3263,7 @@ function App() {
   const [companyInfo, setCompanyInfo] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
   const [ownerSettlements, setOwnerSettlements] = useState([]);
-  const [screenPermissions, setScreenPermissions] = useState([{
-    id: "main",
-    config: DEFAULT_PERMISSIONS
-  }]);
+  const [balanceAdjustments, setBalanceAdjustments] = useState([]);
   const t = useT(lang);
   const theme = THEMES[themeKey] || THEMES.turquoise;
   useEffect(() => {
@@ -3366,7 +3317,7 @@ function App() {
       return;
     }
     (async () => {
-      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al, os, sp] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog"), loadAllFromTable("ownerSettlements"), loadAllFromTable("screenPermissions")]);
+      const [p, un, tn, ct, rv, ex, es, ds, tpl, ci, fullUsers, al, os, ba] = await Promise.all([loadAllFromTable("properties"), loadAllFromTable("units"), loadAllFromTable("tenants"), loadAllFromTable("contracts"), loadAllFromTable("revenues"), loadAllFromTable("expenses"), loadAllFromTable("elecSettlements"), loadAllFromTable("depositSettlements"), loadAllFromTable("templates"), loadAllFromTable("companyInfo"), loadAllFromTable("users"), loadAllFromTable("auditLog"), loadAllFromTable("ownerSettlements"), loadAllFromTable("balanceAdjustments")]);
       setProperties(p);
       setUnits(un);
       setTenants(tn);
@@ -3380,7 +3331,7 @@ function App() {
       if (fullUsers && fullUsers.length) setUsers(fullUsers); // now authenticated, so pin/authUserId are visible
       setAuditLog(al);
       setOwnerSettlements(os);
-      if (sp && sp.length) setScreenPermissions(sp);
+      setBalanceAdjustments(ba);
       setDataLoaded(true);
     })();
   }, [session.user]);
@@ -3469,7 +3420,7 @@ function App() {
   const updDeposits = setAndSave(setDepositSettlements, "depositSettlements");
   const updTemplates = setAndSave(setTemplates, "templates");
   const updOwnerSettlements = setAndSave(setOwnerSettlements, "ownerSettlements");
-  const updScreenPermissions = setAndSave(setScreenPermissions, "screenPermissions");
+  const updBalanceAdjustments = setAndSave(setBalanceAdjustments, "balanceAdjustments");
   const updCompanyInfo = setAndSave(setCompanyInfo, "companyInfo");
   const dir = lang === "ar" ? "rtl" : "ltr";
   const isManager = session.user?.role === "manager";
@@ -3516,8 +3467,7 @@ function App() {
       }
     }, t("loading")));
   }
-  const perms = screenPermissions[0] && screenPermissions[0].config || DEFAULT_PERMISSIONS;
-  const canDo = (screen, action) => can(isManager, perms, screen, action);
+  const canDo = (screen, action) => can(session.user?.role, screen, action);
   const GROUPS = [{
     key: "dashboard",
     label: t("dashboard"),
@@ -3585,6 +3535,9 @@ function App() {
     }] : []), ...(isManager ? [{
       key: "users",
       label: t("usersMgmt")
+    }] : []), ...(isManager ? [{
+      key: "balanceAdjustments",
+      label: t("balanceAdjustments")
     }] : []), {
       key: "settings",
       label: t("settings")
@@ -3612,6 +3565,7 @@ function App() {
     companyInfo,
     auditLog,
     ownerSettlements,
+    balanceAdjustments,
     updProperties,
     updUnits,
     updTenants,
@@ -3624,15 +3578,14 @@ function App() {
     updTemplates,
     updCompanyInfo,
     updOwnerSettlements,
+    updBalanceAdjustments,
     setUsers,
     setTab,
     revenuePrefill,
     setRevenuePrefill,
     tenantFilePrefill,
     setTenantFilePrefill,
-    perms,
-    canDo,
-    updScreenPermissions
+    canDo
   };
   return /*#__PURE__*/React.createElement(DialogCtx.Provider, {
     value: dialogsValue
@@ -3787,7 +3740,7 @@ function App() {
       background: tab === c.key ? theme.primary : theme.primarySoft,
       color: tab === c.key ? "#fff" : theme.primaryDark
     }
-  }, c.label))), tab === "dashboard" && canDo("dashboard", "view") && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && canDo("search", "view") && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && canDo("forms", "view") && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && canDo("reports", "view") && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && canDo("ownerSettlement", "view") && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "auditLog" && canDo("auditLog", "view") && /*#__PURE__*/React.createElement(AuditLogScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
+  }, c.label))), tab === "dashboard" && canDo("dashboard", "view") && /*#__PURE__*/React.createElement(Dashboard, ctx), tab === "properties" && /*#__PURE__*/React.createElement(PropertiesScreen, ctx), tab === "tenants" && /*#__PURE__*/React.createElement(TenantsScreen, ctx), tab === "search" && canDo("search", "view") && /*#__PURE__*/React.createElement(SearchScreen, ctx), tab === "revenues" && /*#__PURE__*/React.createElement(RevenuesScreen, ctx), tab === "expenses" && /*#__PURE__*/React.createElement(ExpensesScreen, ctx), tab === "electricity" && /*#__PURE__*/React.createElement(ElectricityScreen, ctx), tab === "deposits" && /*#__PURE__*/React.createElement(DepositsScreen, ctx), tab === "forms" && canDo("forms", "view") && /*#__PURE__*/React.createElement(FormsScreen, ctx), tab === "reports" && canDo("reports", "view") && /*#__PURE__*/React.createElement(ReportsScreen, ctx), tab === "ownerSettlement" && canDo("ownerSettlement", "view") && /*#__PURE__*/React.createElement(OwnerSettlementScreen, ctx), tab === "auditLog" && canDo("auditLog", "view") && /*#__PURE__*/React.createElement(AuditLogScreen, ctx), tab === "users" && isManager && /*#__PURE__*/React.createElement(UsersScreen, ctx), tab === "balanceAdjustments" && isManager && /*#__PURE__*/React.createElement(BalanceAdjustmentsScreen, ctx), tab === "settings" && /*#__PURE__*/React.createElement(SettingsScreen, {
     theme: theme,
     t: t,
     lang: lang,
@@ -3806,7 +3759,9 @@ function App() {
       depositSettlements,
       users,
       templates,
-      companyInfo
+      companyInfo,
+      ownerSettlements,
+      balanceAdjustments
     },
     properties: properties,
     units: units,
@@ -3832,8 +3787,7 @@ function App() {
     updCompanyInfo: updCompanyInfo,
     ownerSettlements: ownerSettlements,
     updOwnerSettlements: updOwnerSettlements,
-    perms: perms,
-    updScreenPermissions: updScreenPermissions,
+    updBalanceAdjustments: updBalanceAdjustments,
     currentUser: session.user
   }))), /*#__PURE__*/React.createElement(DialogHost, {
     theme: theme,
@@ -4028,7 +3982,8 @@ function Dashboard(props) {
     revenues,
     expenses,
     depositSettlements,
-    elecSettlements
+    elecSettlements,
+    balanceAdjustments
   } = props;
   const [propFilter, setPropFilter] = useState("all");
   const [alertsDismissed, setAlertsDismissed] = useState(false);
@@ -4092,7 +4047,10 @@ function Dashboard(props) {
     return Object.values(byContract).sort((a, b) => b.total - a.total);
   })();
   const elecContractIds = [...new Set(elecSettlements.map(e => e.contractId))];
-  const elecComputed = elecContractIds.flatMap(cid => computeElecChain(contracts.find(x => x.id === cid), elecSettlements));
+  const elecComputed = elecContractIds.flatMap(cid => {
+    const contract = contracts.find(x => x.id === cid);
+    return computeElecChain(contract, elecSettlements, -activeBalanceFor(cid, balanceAdjustments, "electricity"));
+  });
   const elecDue = elecComputed.filter(e => e.tenantOwes > 0 && e.status !== "collected" && e.status !== "suspended");
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center justify-between gap-3 mb-5"
@@ -4779,7 +4737,9 @@ function TenantsScreen(props) {
     currentUser,
     tenantFilePrefill,
     setTenantFilePrefill,
-    canDo
+    canDo,
+    balanceAdjustments,
+    updBalanceAdjustments
   } = props;
   const {
     confirm,
@@ -4870,8 +4830,40 @@ function TenantsScreen(props) {
     };
     if (renewingFrom) {
       const paidDeposit = depositPaidAmount(renewingFrom.id, revenues);
-      const elecChain = computeElecChain(renewingFrom, elecSettlements);
-      newContract.openingElecBalance = elecChain.length ? elecChain[elecChain.length - 1].resultingBalance : 0;
+      // Carry over the electricity balance
+      const oldElecOpening = -activeBalanceFor(renewingFrom.id, balanceAdjustments, "electricity");
+      const elecChain = computeElecChain(renewingFrom, elecSettlements, oldElecOpening);
+      const finalElecBalance = elecChain.length ? elecChain[elecChain.length - 1].resultingBalance : oldElecOpening;
+      const carriedElecDebit = -finalElecBalance; // convert back to our positive=debit convention
+      // Carry over the rent balance
+      const oldRentLedger = buildContractLedger(renewingFrom, units, revenues, lang, t, balanceAdjustments);
+      const finalRentBalance = oldRentLedger.rent.length ? oldRentLedger.rent[oldRentLedger.rent.length - 1].balance : 0;
+      const carryOverEntries = [];
+      if (carriedElecDebit !== 0) {
+        carryOverEntries.push({
+          id: uid(),
+          contractId: newContract.id,
+          type: "electricity",
+          amount: carriedElecDebit,
+          reason: t("carriedOverNote"),
+          date: newContract.startDate,
+          status: "active",
+          createdBy: currentUser.name
+        });
+      }
+      if (finalRentBalance !== 0) {
+        carryOverEntries.push({
+          id: uid(),
+          contractId: newContract.id,
+          type: "rent",
+          amount: finalRentBalance,
+          reason: t("carriedOverNote"),
+          date: newContract.startDate,
+          status: "active",
+          createdBy: currentUser.name
+        });
+      }
+      if (carryOverEntries.length) updBalanceAdjustments(prev => [...prev, ...carryOverEntries]);
       if (paidDeposit > 0) {
         const u = units.find(x => x.id === newContract.unitId);
         updRevenues(prev => [...prev, {
@@ -5448,10 +5440,12 @@ function TenantFileModal({
   focusContractId,
   onHardDeleteContract,
   canDo,
-  onUndoTermination
+  onUndoTermination,
+  balanceAdjustments
 }) {
   const {
-    notify
+    notify,
+    confirm
   } = useDialogs();
   const tContracts = contracts.filter(c => c.tenantId === tenant.id).sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
   const active = tContracts.find(c => c.status === "active");
@@ -5460,6 +5454,7 @@ function TenantFileModal({
   const [reason, setReason] = useState("");
   const [terminationDate, setTerminationDate] = useState(todayISO());
   const [fileFor, setFileFor] = useState(null);
+  const [editingContract, setEditingContract] = useState(null);
   const uploadFile = async (contract, file) => {
     if (file.size > 4 * 1024 * 1024) {
       notify(t("fileTooBig"));
@@ -5495,12 +5490,12 @@ function TenantFileModal({
       terminated: "danger",
       renewed: "neutral"
     };
-    const elecChain = computeElecChain(c, elecSettlements);
+    const elecChain = computeElecChain(c, elecSettlements, -activeBalanceFor(c.id, balanceAdjustments, "electricity"));
     const lastElec = elecChain.length ? elecChain[elecChain.length - 1] : null;
     const [reportView, setReportView] = useState(null); // null | 'ledger' | 'electricity'
 
-    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t), [c, units, revenues, lang]);
-    const elecLedger = useMemo(() => buildElectricityLedger(c, elecSettlements, lang, t), [c, elecSettlements, lang]);
+    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t, balanceAdjustments), [c, units, revenues, lang, balanceAdjustments]);
+    const elecLedger = useMemo(() => buildElectricityLedger(c, elecSettlements, lang, t, balanceAdjustments), [c, elecSettlements, lang, balanceAdjustments]);
     const [viewingDoc, setViewingDoc] = useState(null);
     const renderGroupTable = (rows, groupTitle) => /*#__PURE__*/React.createElement("div", {
       className: "mb-3 last:mb-0"
@@ -5642,11 +5637,37 @@ function TenantFileModal({
       }
     }, t("electricityBalance"), ": ", fmtSigned(lastElec.resultingBalance))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-2 mt-2"
-    }, c.status === "active" && canDo("contracts", "edit") && /*#__PURE__*/React.createElement(Btn, {
+    }, canDo("contracts", "edit") && (hasSecondMonthInvoice(c, revenues) ? /*#__PURE__*/React.createElement("span", {
+      className: "text-xs inline-flex items-center gap-1",
+      style: {
+        color: theme.textSoft
+      }
+    }, /*#__PURE__*/React.createElement(Btn, {
       theme: theme,
       small: true,
       variant: "outline",
-      onClick: () => onRenew(c)
+      disabled: true,
+      title: t("contractLockedNote")
+    }, /*#__PURE__*/React.createElement(Edit2, {
+      size: 13
+    }), t("editContract")), t("contractLockedNote")) : /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "outline",
+      onClick: () => setEditingContract(c)
+    }, /*#__PURE__*/React.createElement(Edit2, {
+      size: 13
+    }), t("editContract"))), c.status === "active" && canDo("contracts", "edit") && /*#__PURE__*/React.createElement(Btn, {
+      theme: theme,
+      small: true,
+      variant: "outline",
+      onClick: async () => {
+        const lastRent = contractLedger.rent.length ? contractLedger.rent[contractLedger.rent.length - 1].balance : 0;
+        if (lastRent > 0) {
+          if (!(await confirm(`${t("arrearsWarning")} ${fmtMoney(lastRent)} BHD. ${t("arrearsWarningConfirm")}`))) return;
+        }
+        onRenew(c);
+      }
     }, /*#__PURE__*/React.createElement(RefreshCw, {
       size: 13
     }), t("renew")), c.status === "active" && canDo("contracts", "edit") && /*#__PURE__*/React.createElement(Btn, {
@@ -5810,7 +5831,119 @@ function TenantFileModal({
       width: "100%",
       borderRadius: 8
     }
-  })));
+  })), editingContract && /*#__PURE__*/React.createElement(ContractEditModal, {
+    theme: theme,
+    t: t,
+    contract: editingContract,
+    onClose: () => setEditingContract(null),
+    onSave: data => {
+      updContracts(prev => prev.map(c => c.id === editingContract.id ? {
+        ...c,
+        ...data
+      } : c));
+      setEditingContract(null);
+    }
+  }));
+}
+function ContractEditModal({
+  theme,
+  t,
+  contract,
+  onClose,
+  onSave
+}) {
+  const {
+    notify
+  } = useDialogs();
+  const [form, setForm] = useState({
+    startDate: contract.startDate,
+    endDate: contract.endDate,
+    monthlyRent: contract.monthlyRent,
+    depositAmount: contract.depositAmount,
+    electricityLimit: contract.electricityLimit
+  });
+  const set = k => e => setForm(f => ({
+    ...f,
+    [k]: e.target.value
+  }));
+  const submit = () => {
+    if (!form.startDate) {
+      notify(t("missingStartDate"));
+      return;
+    }
+    if (!form.endDate) {
+      notify(t("missingEndDate"));
+      return;
+    }
+    if (!form.monthlyRent) {
+      notify(t("missingMonthlyRent"));
+      return;
+    }
+    onSave({
+      ...form,
+      monthlyRent: Number(form.monthlyRent),
+      depositAmount: Number(form.depositAmount || 0),
+      electricityLimit: Number(form.electricityLimit || 0)
+    });
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    theme: theme,
+    title: t("editContract"),
+    onClose: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("startDate"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: form.startDate,
+    onChange: set("startDate")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("endDate"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: form.endDate,
+    onChange: set("endDate")
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("monthlyRent"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: form.monthlyRent,
+    onChange: set("monthlyRent")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("depositAmount")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: form.depositAmount,
+    onChange: set("depositAmount")
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: t("electricityLimit")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: form.electricityLimit,
+    onChange: set("electricityLimit")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: submit
+  }, /*#__PURE__*/React.createElement(Check, {
+    size: 16
+  }), t("saveChanges")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: onClose
+  }, t("cancel"))));
 }
 
 /* ============================== SEARCH ============================== */
@@ -6005,22 +6138,6 @@ function RevenuesScreen(props) {
     const cat = OTHER_REVENUE_CATEGORIES.find(c => c.key === r.category);
     const revenueTypeLabel = r.type === "rent" ? t("rentRevenue") + (r.month ? " — " + monthLabel(r.month, lang) : "") : cat ? cat[lang] : t("otherRevenue");
     const paymentMethodLabel = (PAYMENT_METHODS.find(m => m.key === r.paymentMethod) || {})[lang] || r.paymentMethod || "";
-    const tpl = props.templates.find(x => x.docType === "receipt");
-    if (tpl) {
-      const img = await loadTemplateImage(tpl.id);
-      if (img) {
-        printWithTemplate(t("printReceipt"), img, tpl.fields, {
-          tenantName: tenant?.name || "",
-          propertyUnit: property ? `${property.buildingName}${unit ? " — " + unit.unitNo : ""}` : "",
-          revenueType: revenueTypeLabel,
-          amount: fmtMoney(r.amount) + " BHD",
-          paymentMethod: paymentMethodLabel,
-          date: r.date,
-          notes: r.notes || ""
-        });
-        return;
-      }
-    }
     printDefaultDocument({
       docType: "receipt",
       docNo: r.docNo,
@@ -6811,9 +6928,12 @@ function ExpenseFormModal({
 
 /* ============================== ELECTRICITY ============================== */
 
+function activeBalanceFor(contractId, balanceAdjustments, type) {
+  return (balanceAdjustments || []).filter(b => b.contractId === contractId && b.type === type && b.status === "active").reduce((s, b) => s + Number(b.amount || 0), 0);
+}
 function computeElecChain(contractOrId, elecSettlements, openingBalance) {
   const contractId = typeof contractOrId === "object" && contractOrId ? contractOrId.id : contractOrId;
-  const opening = typeof contractOrId === "object" && contractOrId ? Number(contractOrId.openingElecBalance || 0) : Number(openingBalance || 0);
+  const opening = Number(openingBalance || 0);
   const rows = elecSettlements.filter(e => e.contractId === contractId).sort((a, b) => a.month.localeCompare(b.month) || (a.date || "").localeCompare(b.date || ""));
   let running = opening;
   return rows.map(row => {
@@ -6863,7 +6983,8 @@ function ElectricityScreen(props) {
     updExpenses,
     updRevenues,
     currentUser,
-    canDo
+    canDo,
+    balanceAdjustments
   } = props;
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -7011,7 +7132,10 @@ function ElectricityScreen(props) {
 
   // compute derived balances per contract, then flatten and sort by date desc for display
   const contractIds = [...new Set(elecSettlements.map(e => e.contractId))];
-  const computedRows = contractIds.flatMap(cid => computeElecChain(contracts.find(x => x.id === cid), elecSettlements));
+  const computedRows = contractIds.flatMap(cid => {
+    const contract = contracts.find(x => x.id === cid);
+    return computeElecChain(contract, elecSettlements, -activeBalanceFor(cid, balanceAdjustments, "electricity"));
+  });
   const [filterProperty, setFilterProperty] = useState("");
   const [filterUnit, setFilterUnit] = useState("");
   const [filterTenant, setFilterTenant] = useState("");
@@ -7948,8 +8072,6 @@ function FormsScreen(props) {
     units,
     properties,
     revenues,
-    templates,
-    updTemplates,
     isManager,
     companyInfo
   } = props;
@@ -7961,8 +8083,6 @@ function FormsScreen(props) {
   const [month, setMonth] = useState(monthKey());
   const [contractDocId, setContractDocId] = useState("");
   const [termContractId, setTermContractId] = useState("");
-  const [designerFor, setDesignerFor] = useState(null); // docType being designed, or null
-
   const generateInvoice = async () => {
     const c = contracts.find(x => x.id === contractId);
     if (!c) return;
@@ -7970,24 +8090,6 @@ function FormsScreen(props) {
     const u = units.find(x => x.id === c.unitId);
     const p = properties.find(x => x.id === u.propertyId);
     const paid = revenues.filter(r => r.contractId === c.id && r.month === month && r.type === "rent" && r.status !== "suspended").reduce((s, r) => s + Number(r.amount || 0), 0);
-    const values = {
-      tenantName: tn?.name || "",
-      buildingName: p?.buildingName || "",
-      unitNo: u?.unitNo || "",
-      month: monthLabel(month, lang),
-      requiredAmount: fmtMoney(c.monthlyRent) + " BHD",
-      paidAmount: fmtMoney(paid) + " BHD",
-      remainingAmount: fmtMoney(Math.max(0, c.monthlyRent - paid)) + " BHD",
-      date: todayISO()
-    };
-    const tpl = templates.find(x => x.docType === "rent_invoice");
-    if (tpl) {
-      const img = await loadTemplateImage(tpl.id);
-      if (img) {
-        printWithTemplate(t("rentInvoice"), img, tpl.fields, values);
-        return;
-      }
-    }
     printDefaultDocument({
       docType: "rent_invoice",
       docNo: nextDocNo("RVN", revenues, todayISO()),
@@ -8004,28 +8106,15 @@ function FormsScreen(props) {
     const tn = tenants.find(x => x.id === c.tenantId);
     const u = units.find(x => x.id === c.unitId);
     const p = properties.find(x => x.id === u.propertyId);
-    const values = {
-      tenantName: tn?.name || "",
-      nationality: tn?.nationality || "",
-      idNo: tn?.idNo || tn?.passportNo || "",
-      phone: tn?.phone || "",
-      buildingName: p?.buildingName || "",
-      unitNo: u?.unitNo || "",
-      startDate: c.startDate,
-      endDate: c.endDate,
-      monthlyRent: fmtMoney(c.monthlyRent) + " BHD",
-      depositAmount: fmtMoney(c.depositAmount) + " BHD",
-      electricityLimit: fmtMoney(c.electricityLimit) + " BHD"
-    };
-    const tpl = templates.find(x => x.docType === "contract");
-    if (tpl) {
-      const img = await loadTemplateImage(tpl.id);
-      if (img) {
-        printWithTemplate(t("contractDoc"), img, tpl.fields, values);
-        return;
-      }
-    }
-    notify(t("noTemplateForDoc"));
+    printDefaultDocument({
+      docType: "contract",
+      docNo: c.contractNo,
+      date: todayISO(),
+      lang,
+      t,
+      companyInfo,
+      rows: [[t("tenantName"), tn?.name || ""], [t("nationality"), tn?.nationality || ""], [t("idNo"), tn?.idNo || tn?.passportNo || ""], [t("phone"), tn?.phone || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("startDate"), c.startDate], [t("endDate"), c.endDate], [t("monthlyRent"), fmtMoney(c.monthlyRent) + " BHD"], [t("depositAmount"), fmtMoney(c.depositAmount) + " BHD"], [t("electricityLimit"), fmtMoney(c.electricityLimit) + " BHD"]]
+    });
   };
   const generateTerminationDoc = async () => {
     const c = contracts.find(x => x.id === termContractId);
@@ -8033,37 +8122,15 @@ function FormsScreen(props) {
     const tn = tenants.find(x => x.id === c.tenantId);
     const u = units.find(x => x.id === c.unitId);
     const p = properties.find(x => x.id === u.propertyId);
-    const values = {
-      tenantName: tn?.name || "",
-      buildingName: p?.buildingName || "",
-      unitNo: u?.unitNo || "",
-      terminationDate: c.terminationDate || todayISO(),
-      terminationReason: c.terminationReason || "",
-      date: todayISO()
-    };
-    const tpl = templates.find(x => x.docType === "termination");
-    if (tpl) {
-      const img = await loadTemplateImage(tpl.id);
-      if (img) {
-        printWithTemplate(t("terminationDoc"), img, tpl.fields, values);
-        return;
-      }
-    }
-    const html = `
-      <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
-      <h2>${t("terminationDoc")}</h2>
-      <table>
-        <tr><th>${t("tenantName")}</th><td>${esc(tn?.name)}</td></tr>
-        <tr><th>${t("properties")}</th><td>${esc(p?.buildingName)} — ${esc(u?.unitNo)}</td></tr>
-        <tr><th>${t("terminationDate")}</th><td>${esc(c.terminationDate)}</td></tr>
-        <tr><th>${t("terminationReason")}</th><td>${esc(c.terminationReason)}</td></tr>
-      </table>
-    `;
-    printHtml(t("terminationDoc"), html, theme);
-  };
-  const deleteTemplate = async tplId => {
-    if (!(await confirm(t("confirmDelete")))) return;
-    updTemplates(prev => prev.filter(x => x.id !== tplId));
+    printDefaultDocument({
+      docType: "termination",
+      docNo: c.contractNo,
+      date: todayISO(),
+      lang,
+      t,
+      companyInfo,
+      rows: [[t("tenantName"), tn?.name || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("terminationDate"), c.terminationDate || todayISO()], [t("terminationReason"), c.terminationReason || ""]]
+    });
   };
   const terminatedContracts = contracts.filter(c => c.status === "terminated" || c.status === "expired");
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
@@ -8154,12 +8221,7 @@ function FormsScreen(props) {
     disabled: !contractDocId
   }, /*#__PURE__*/React.createElement(Download, {
     size: 16
-  }), t("generateInvoice")), !templates.some(x => x.docType === "contract") && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs mt-2",
-    style: {
-      color: theme.warning
-    }
-  }, t("noTemplateForDoc"))), /*#__PURE__*/React.createElement("div", {
+  }), t("generateInvoice"))), /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
       background: theme.surface,
@@ -8190,256 +8252,7 @@ function FormsScreen(props) {
     disabled: !termContractId
   }, /*#__PURE__*/React.createElement(Download, {
     size: 16
-  }), t("generateInvoice")))), isManager && /*#__PURE__*/React.createElement("div", {
-    className: "rounded-2xl p-5 mt-4",
-    style: {
-      background: theme.surface,
-      border: `1px solid ${theme.border}`
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 font-semibold"
-  }, /*#__PURE__*/React.createElement(FileUp, {
-    size: 18
-  }), t("templates"))), /*#__PURE__*/React.createElement("div", {
-    className: "grid sm:grid-cols-2 gap-3"
-  }, TEMPLATE_DOC_TYPES.map(dt => {
-    const existing = templates.find(x => x.docType === dt.key);
-    return /*#__PURE__*/React.createElement("div", {
-      key: dt.key,
-      className: "rounded-xl p-3",
-      style: {
-        background: theme.bg,
-        border: `1px solid ${theme.border}`
-      }
-    }, /*#__PURE__*/React.createElement("p", {
-      className: "text-sm font-medium mb-1"
-    }, dt[lang]), /*#__PURE__*/React.createElement("p", {
-      className: "text-xs mb-2",
-      style: {
-        color: theme.textSoft
-      }
-    }, existing ? existing.name : t("noTemplateYet")), /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-2 flex-wrap"
-    }, /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "outline",
-      small: true,
-      onClick: () => setDesignerFor({
-        docType: dt.key,
-        existing
-      })
-    }, /*#__PURE__*/React.createElement(Edit2, {
-      size: 13
-    }), existing ? t("edit") : t("uploadTemplateImage")), existing && /*#__PURE__*/React.createElement(Btn, {
-      theme: theme,
-      variant: "danger",
-      small: true,
-      onClick: () => deleteTemplate(existing.id)
-    }, /*#__PURE__*/React.createElement(Trash2, {
-      size: 13
-    }))));
-  }))), designerFor && /*#__PURE__*/React.createElement(TemplateDesignerModal, {
-    theme: theme,
-    t: t,
-    lang: lang,
-    docType: designerFor.docType,
-    existing: designerFor.existing,
-    onClose: () => setDesignerFor(null),
-    onSave: (tplData, imageDataUrl) => {
-      const id = designerFor.existing?.id || uid();
-      updTemplates(prev => {
-        const withoutOld = prev.filter(x => x.id !== id);
-        return [...withoutOld, {
-          id,
-          docType: designerFor.docType,
-          ...tplData,
-          imageData: imageDataUrl
-        }];
-      });
-      setDesignerFor(null);
-    }
-  }));
-}
-function TemplateDesignerModal({
-  theme,
-  t,
-  lang,
-  docType,
-  existing,
-  onClose,
-  onSave
-}) {
-  const {
-    notify
-  } = useDialogs();
-  const [name, setName] = useState(existing?.name || "");
-  const [imageDataUrl, setImageDataUrl] = useState(null);
-  const [fields, setFields] = useState(existing?.fields || []);
-  const [addKey, setAddKey] = useState("");
-  const containerRef = React.useRef(null);
-  const dragRef = React.useRef(null);
-  useEffect(() => {
-    if (existing) loadTemplateImage(existing.id).then(img => img && setImageDataUrl(img));
-  }, [existing]);
-  const fieldDefs = TEMPLATE_FIELD_DEFS[docType] || [];
-  const availableToAdd = fieldDefs.filter(f => !fields.some(x => x.key === f.key));
-  const onFile = file => {
-    if (file.size > 4 * 1024 * 1024) {
-      notify(t("fileTooBig"));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setImageDataUrl(reader.result);
-    reader.readAsDataURL(file);
-  };
-  const addField = () => {
-    if (!addKey) return;
-    setFields(f => [...f, {
-      key: addKey,
-      xPct: 10,
-      yPct: 10 + f.length * 8,
-      fontSize: 14
-    }]);
-    setAddKey("");
-  };
-  const removeField = key => setFields(f => f.filter(x => x.key !== key));
-  const onPointerDownField = key => e => {
-    e.preventDefault();
-    dragRef.current = key;
-  };
-  const onContainerPointerMove = e => {
-    if (!dragRef.current || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const xPct = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
-    const yPct = Math.max(0, Math.min(100, (e.clientY - rect.top) / rect.height * 100));
-    setFields(f => f.map(fl => fl.key === dragRef.current ? {
-      ...fl,
-      xPct,
-      yPct
-    } : fl));
-  };
-  const onContainerPointerUp = () => {
-    dragRef.current = null;
-  };
-  const submit = () => {
-    if (!imageDataUrl) {
-      notify(t("missingTemplateImage"));
-      return;
-    }
-    if (!name) {
-      notify(t("missingTemplateName"));
-      return;
-    }
-    if (fields.length === 0) {
-      notify(t("missingTemplateFields"));
-      return;
-    }
-    onSave({
-      name,
-      fields
-    }, imageDataUrl);
-  };
-  return /*#__PURE__*/React.createElement(Modal, {
-    theme: theme,
-    title: t("manageTemplates"),
-    onClose: onClose,
-    wide: true
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: t("templateName"),
-    required: true
-  }, /*#__PURE__*/React.createElement("input", {
-    style: inputStyle(theme),
-    value: name,
-    onChange: e => setName(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: t("uploadTemplateImage")
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/png,image/jpeg",
-    onChange: e => e.target.files[0] && onFile(e.target.files[0])
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs mt-1",
-    style: {
-      color: theme.textSoft
-    }
-  }, t("templateImageNote"))), imageDataUrl && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mb-2"
-  }, /*#__PURE__*/React.createElement("select", {
-    style: {
-      ...inputStyle(theme),
-      width: "auto",
-      flex: 1
-    },
-    value: addKey,
-    onChange: e => setAddKey(e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "-"), availableToAdd.map(f => /*#__PURE__*/React.createElement("option", {
-    key: f.key,
-    value: f.key
-  }, f[lang]))), /*#__PURE__*/React.createElement(Btn, {
-    theme: theme,
-    small: true,
-    variant: "outline",
-    onClick: addField,
-    disabled: !addKey
-  }, /*#__PURE__*/React.createElement(Plus, {
-    size: 13
-  }), t("addField"))), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs mb-2",
-    style: {
-      color: theme.textSoft
-    }
-  }, t("dragToPosition")), /*#__PURE__*/React.createElement("div", {
-    ref: containerRef,
-    onPointerMove: onContainerPointerMove,
-    onPointerUp: onContainerPointerUp,
-    onPointerLeave: onContainerPointerUp,
-    className: "relative rounded-xl overflow-hidden select-none",
-    style: {
-      border: `1px solid ${theme.border}`,
-      touchAction: "none"
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: imageDataUrl,
-    alt: "",
-    className: "w-full block pointer-events-none"
-  }), fields.map(f => {
-    const def = fieldDefs.find(x => x.key === f.key);
-    return /*#__PURE__*/React.createElement("div", {
-      key: f.key,
-      onPointerDown: onPointerDownField(f.key),
-      className: "absolute px-1.5 py-0.5 rounded text-xs font-medium cursor-move flex items-center gap-1",
-      style: {
-        left: `${f.xPct}%`,
-        top: `${f.yPct}%`,
-        transform: "translate(0,-50%)",
-        background: theme.primary,
-        color: "#fff",
-        whiteSpace: "nowrap"
-      }
-    }, def ? def[lang] : f.key, /*#__PURE__*/React.createElement("span", {
-      onPointerDown: e => e.stopPropagation(),
-      onClick: () => removeField(f.key),
-      style: {
-        cursor: "pointer"
-      }
-    }, "×"));
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 mt-4"
-  }, /*#__PURE__*/React.createElement(Btn, {
-    theme: theme,
-    onClick: submit,
-    disabled: !name || !imageDataUrl || fields.length === 0
-  }, /*#__PURE__*/React.createElement(Check, {
-    size: 16
-  }), t("save")), /*#__PURE__*/React.createElement(Btn, {
-    theme: theme,
-    variant: "outline",
-    onClick: onClose
-  }, t("cancel"))));
+  }), t("generateInvoice")))));
 }
 
 /* ============================== REPORTS ============================== */
@@ -9454,6 +9267,8 @@ function UserFormModal({
   }, /*#__PURE__*/React.createElement("option", {
     value: "employee"
   }, t("employee")), /*#__PURE__*/React.createElement("option", {
+    value: "owner"
+  }, t("owner")), /*#__PURE__*/React.createElement("option", {
     value: "manager"
   }, t("manager")))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-3"
@@ -9468,6 +9283,270 @@ function UserFormModal({
     variant: "outline",
     onClick: onClose,
     disabled: busy
+  }, t("cancel"))));
+}
+
+/* ============================== BALANCE ADJUSTMENTS ============================== */
+
+function BalanceAdjustmentsScreen(props) {
+  const {
+    theme,
+    t,
+    lang,
+    contracts,
+    tenants,
+    units,
+    properties,
+    balanceAdjustments,
+    updBalanceAdjustments,
+    currentUser
+  } = props;
+  const {
+    confirm
+  } = useDialogs();
+  const [contractId, setContractId] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const contractLabel = c => {
+    const tn = tenants.find(x => x.id === c.tenantId);
+    const u = units.find(x => x.id === c.unitId);
+    const p = u ? properties.find(x => x.id === u.propertyId) : null;
+    return `${tn?.name || ""} — ${p?.buildingName || ""} ${u?.unitNo || ""} (${c.contractNo || ""})`;
+  };
+  const forContract = balanceAdjustments.filter(b => b.contractId === contractId).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const activeRentBalance = forContract.filter(b => b.type === "rent" && b.status === "active").reduce((s, b) => s + Number(b.amount || 0), 0);
+  const activeElecBalance = forContract.filter(b => b.type === "electricity" && b.status === "active").reduce((s, b) => s + Number(b.amount || 0), 0);
+  const save = data => {
+    if (editing) {
+      updBalanceAdjustments(prev => prev.map(b => b.id === editing.id ? {
+        ...b,
+        ...data
+      } : b));
+    } else {
+      updBalanceAdjustments(prev => [...prev, {
+        id: uid(),
+        contractId,
+        createdBy: currentUser.name,
+        status: "active",
+        ...data
+      }]);
+    }
+    setShowAdd(false);
+    setEditing(null);
+  };
+  const toggleSuspend = b => {
+    updBalanceAdjustments(prev => prev.map(x => x.id === b.id ? {
+      ...x,
+      status: x.status === "suspended" ? "active" : "suspended"
+    } : x));
+  };
+  const del = async b => {
+    if (!(await confirm(t("confirmDelete")))) return;
+    updBalanceAdjustments(prev => prev.filter(x => x.id !== b.id));
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-bold mb-2"
+  }, t("balanceAdjustments")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mb-5",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("balanceAdjustmentsNote")), /*#__PURE__*/React.createElement(Field, {
+    label: t("selectContract")
+  }, /*#__PURE__*/React.createElement("select", {
+    style: inputStyle(theme),
+    value: contractId,
+    onChange: e => setContractId(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "-"), contracts.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, contractLabel(c))))), contractId && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 gap-3 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-4",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("rentBalance")), /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-bold",
+    style: {
+      color: activeRentBalance >= 0 ? theme.danger : theme.success
+    }
+  }, fmtSigned(activeRentBalance))), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-4",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("electricityBalance")), /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-bold",
+    style: {
+      color: activeElecBalance >= 0 ? theme.danger : theme.success
+    }
+  }, fmtSigned(activeElecBalance)))), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: () => {
+      setEditing(null);
+      setShowAdd(true);
+    }
+  }, /*#__PURE__*/React.createElement(Plus, {
+    size: 16
+  }), t("addAdjustment")), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 space-y-2"
+  }, forContract.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    theme: theme,
+    text: t("noData")
+  }) : forContract.map(b => /*#__PURE__*/React.createElement("div", {
+    key: b.id,
+    className: "rounded-xl p-3.5 flex items-center justify-between flex-wrap gap-2",
+    style: {
+      background: theme.surface,
+      border: `1px solid ${theme.border}`,
+      opacity: b.status === "suspended" ? 0.55 : 1
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium"
+  }, b.type === "rent" ? t("rentBalance") : t("electricityBalance"), " — ", fmtSigned(b.amount)), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs",
+    style: {
+      color: theme.textSoft
+    }
+  }, b.date, " ", b.reason ? "· " + b.reason : "", " ", b.status === "suspended" ? `· ${t("suspended")}` : "")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setEditing(b);
+      setShowAdd(true);
+    },
+    title: t("edit"),
+    style: {
+      color: theme.textSoft
+    }
+  }, /*#__PURE__*/React.createElement(Edit2, {
+    size: 14
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleSuspend(b),
+    title: b.status === "suspended" ? t("unsuspend") : t("suspend"),
+    style: {
+      color: b.status === "suspended" ? theme.success : theme.warning
+    }
+  }, /*#__PURE__*/React.createElement(Ban, {
+    size: 14
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => del(b),
+    title: t("delete"),
+    style: {
+      color: theme.danger
+    }
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 14
+  }))))))), showAdd && /*#__PURE__*/React.createElement(BalanceAdjustmentFormModal, {
+    theme: theme,
+    t: t,
+    initial: editing,
+    onClose: () => {
+      setShowAdd(false);
+      setEditing(null);
+    },
+    onSave: save
+  }));
+}
+function BalanceAdjustmentFormModal({
+  theme,
+  t,
+  initial,
+  onClose,
+  onSave
+}) {
+  const {
+    notify
+  } = useDialogs();
+  const [form, setForm] = useState(initial ? {
+    type: initial.type,
+    amount: initial.amount,
+    reason: initial.reason || "",
+    date: initial.date
+  } : {
+    type: "rent",
+    amount: "",
+    reason: "",
+    date: todayISO()
+  });
+  const set = k => e => setForm(f => ({
+    ...f,
+    [k]: e.target.value
+  }));
+  const submit = () => {
+    if (form.amount === "" || isNaN(Number(form.amount))) {
+      notify(t("missingAmount"));
+      return;
+    }
+    onSave({
+      ...form,
+      amount: Number(form.amount)
+    });
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    theme: theme,
+    title: initial ? t("edit") : t("addAdjustment"),
+    onClose: onClose
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: t("adjustmentType")
+  }, /*#__PURE__*/React.createElement("select", {
+    style: inputStyle(theme),
+    value: form.type,
+    onChange: set("type")
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "rent"
+  }, t("rentBalance")), /*#__PURE__*/React.createElement("option", {
+    value: "electricity"
+  }, t("electricityBalance")))), /*#__PURE__*/React.createElement(Field, {
+    label: t("adjustmentAmount"),
+    required: true
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: form.amount,
+    onChange: set("amount")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("date")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: form.date,
+    onChange: set("date")
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: t("adjustmentReason")
+  }, /*#__PURE__*/React.createElement("input", {
+    style: inputStyle(theme),
+    value: form.reason,
+    onChange: set("reason")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    onClick: submit
+  }, /*#__PURE__*/React.createElement(Check, {
+    size: 16
+  }), t("save")), /*#__PURE__*/React.createElement(Btn, {
+    theme: theme,
+    variant: "outline",
+    onClick: onClose
   }, t("cancel"))));
 }
 
@@ -9507,8 +9586,7 @@ function SettingsScreen({
   setUsers,
   ownerSettlements,
   updOwnerSettlements,
-  perms,
-  updScreenPermissions
+  updBalanceAdjustments
 }) {
   const {
     notify,
@@ -9535,80 +9613,6 @@ function SettingsScreen({
   });
   const [restoreSummary, setRestoreSummary] = useState(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [permsForm, setPermsForm] = useState(() => JSON.parse(JSON.stringify(perms || DEFAULT_PERMISSIONS)));
-  const [permsSaved, setPermsSaved] = useState(false);
-  useEffect(() => {
-    setPermsForm(JSON.parse(JSON.stringify(perms || DEFAULT_PERMISSIONS)));
-  }, [perms]);
-  const togglePerm = (screen, action) => {
-    setPermsForm(prev => ({
-      ...prev,
-      [screen]: {
-        ...prev[screen],
-        [action]: !prev[screen]?.[action]
-      }
-    }));
-  };
-  const savePerms = () => {
-    updScreenPermissions(() => [{
-      id: "main",
-      config: permsForm
-    }]);
-    setPermsSaved(true);
-    setTimeout(() => setPermsSaved(false), 2500);
-  };
-  const PERMISSION_VIEW_SCREENS = [{
-    key: "dashboard",
-    label: t("dashboard")
-  }, {
-    key: "search",
-    label: t("search")
-  }, {
-    key: "forms",
-    label: t("forms")
-  }, {
-    key: "reports",
-    label: t("reports")
-  }, {
-    key: "ownerSettlement",
-    label: t("ownerSettlement")
-  }, {
-    key: "auditLog",
-    label: t("auditLog")
-  }];
-  const PERMISSION_ACTION_SCREENS = [{
-    key: "properties",
-    label: t("properties"),
-    actions: ["add", "edit", "delete"]
-  }, {
-    key: "units",
-    label: t("units"),
-    actions: ["add", "edit", "delete"]
-  }, {
-    key: "tenants",
-    label: t("tenants"),
-    actions: ["add", "edit", "delete"]
-  }, {
-    key: "contracts",
-    label: t("contracts"),
-    actions: ["add", "edit", "delete"]
-  }, {
-    key: "revenues",
-    label: t("revenues"),
-    actions: ["add", "edit", "delete", "suspend"]
-  }, {
-    key: "expenses",
-    label: t("expenses"),
-    actions: ["add", "edit", "delete"]
-  }, {
-    key: "electricity",
-    label: t("electricity"),
-    actions: ["add", "edit", "delete", "suspend"]
-  }, {
-    key: "deposits",
-    label: t("deposits"),
-    actions: ["add", "edit", "delete"]
-  }];
   const [resetBusy, setResetBusy] = useState(false);
   const daysSinceBackup = lastBackupDate ? daysBetween(todayISO(), lastBackupDate) : null;
   const backupOverdue = daysSinceBackup === null || daysSinceBackup >= 14;
@@ -9693,6 +9697,7 @@ function SettingsScreen({
       updTemplates(() => []);
       updCompanyInfo(() => []);
       updOwnerSettlements(() => []);
+      updBalanceAdjustments(() => []);
 
       // Clear old audit log and contract files directly, then leave one fresh entry documenting the reset itself
       try {
@@ -9752,7 +9757,9 @@ function SettingsScreen({
           elecSettlements: sheetJson("elecSettlements"),
           depositSettlements: sheetJson("depositSettlements"),
           templates: sheetJson("templates"),
-          companyInfo: sheetJson("companyInfo")
+          companyInfo: sheetJson("companyInfo"),
+          ownerSettlements: sheetJson("ownerSettlements"),
+          balanceAdjustments: sheetJson("balanceAdjustments")
         };
         if (restored.properties) updProperties(() => restored.properties);
         if (restored.units) updUnits(() => restored.units);
@@ -9764,6 +9771,8 @@ function SettingsScreen({
         if (restored.depositSettlements) updDeposits(() => restored.depositSettlements);
         if (restored.templates) updTemplates(() => restored.templates);
         if (restored.companyInfo) updCompanyInfo(() => restored.companyInfo);
+        if (restored.ownerSettlements) updOwnerSettlements(() => restored.ownerSettlements);
+        if (restored.balanceAdjustments) updBalanceAdjustments(() => restored.balanceAdjustments);
 
         // users need real login accounts recreated via the secure edge function — skip ones that already exist by name
         const backedUpUsers = sheetJson("users") || [];
@@ -9914,6 +9923,7 @@ function SettingsScreen({
         const monthStart = todayISO().slice(0, 7) + "-01";
         const newContracts = [];
         const newDepositRevenues = [];
+        const newBalanceAdjustments = [];
         contractRows.forEach(r => {
           const bno = String(r["Building No"] || "").trim();
           const unitNo = String(r["Unit No"] || "").trim();
@@ -9937,9 +9947,22 @@ function SettingsScreen({
             monthlyRent: Number(r["Monthly Rent"] || 0),
             depositAmount,
             electricityLimit: Number(r["Electricity Limit"] || 0),
-            openingElecBalance: Number(r["Opening Electricity Balance"] || 0),
             createdBy: currentUser.name
           });
+          const importedElecBalance = Number(r["Opening Electricity Balance"] || 0);
+          if (importedElecBalance !== 0) {
+            // The import sheet uses negative=owed/positive=credit; our balance_adjustments table uses positive=debit(owed), so negate.
+            newBalanceAdjustments.push({
+              id: uid(),
+              contractId,
+              type: "electricity",
+              amount: -importedElecBalance,
+              reason: t("migratedNote"),
+              date: monthStart,
+              status: "active",
+              createdBy: currentUser.name
+            });
+          }
           if (depositPaid > 0) {
             newDepositRevenues.push({
               id: uid(),
@@ -9963,6 +9986,7 @@ function SettingsScreen({
         updTenants(() => newTenants);
         updContracts(prev => [...prev, ...newContracts]);
         if (newDepositRevenues.length) updRevenues(prev => [...prev, ...newDepositRevenues]);
+        if (newBalanceAdjustments.length) updBalanceAdjustments(prev => [...prev, ...newBalanceAdjustments]);
         setImportSummary({
           properties: newProperties.length - properties.length,
           units: newUnits.length - units.length,
@@ -10166,74 +10190,6 @@ function SettingsScreen({
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 16
   }), t("resetProgramButton")))), isManager && /*#__PURE__*/React.createElement("div", {
-    className: "rounded-2xl p-5",
-    style: {
-      background: theme.surface,
-      border: `1px solid ${theme.border}`
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mb-3 font-semibold"
-  }, /*#__PURE__*/React.createElement(ShieldCheck, {
-    size: 17
-  }), t("employeePermissions")), /*#__PURE__*/React.createElement("p", {
-    className: "text-sm mb-4",
-    style: {
-      color: theme.textSoft
-    }
-  }, t("employeePermissionsNote")), /*#__PURE__*/React.createElement("h4", {
-    className: "text-xs font-semibold mb-2",
-    style: {
-      color: theme.primaryDark
-    }
-  }, t("screenVisibility")), /*#__PURE__*/React.createElement("div", {
-    className: "grid sm:grid-cols-2 gap-2 mb-5"
-  }, PERMISSION_VIEW_SCREENS.map(s => /*#__PURE__*/React.createElement("label", {
-    key: s.key,
-    className: "flex items-center gap-2 text-sm rounded-lg px-3 py-2",
-    style: {
-      background: theme.bg
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: !!permsForm[s.key]?.view,
-    onChange: () => togglePerm(s.key, "view")
-  }), s.label))), /*#__PURE__*/React.createElement("h4", {
-    className: "text-xs font-semibold mb-2",
-    style: {
-      color: theme.primaryDark
-    }
-  }, t("screenActions")), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 mb-4"
-  }, PERMISSION_ACTION_SCREENS.map(s => /*#__PURE__*/React.createElement("div", {
-    key: s.key,
-    className: "rounded-xl p-3",
-    style: {
-      background: theme.bg,
-      border: `1px solid ${theme.border}`
-    }
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm font-medium mb-2"
-  }, s.label), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-3"
-  }, s.actions.map(a => /*#__PURE__*/React.createElement("label", {
-    key: a,
-    className: "flex items-center gap-1.5 text-xs"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: !!permsForm[s.key]?.[a],
-    onChange: () => togglePerm(s.key, a)
-  }), t(a))))))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(Btn, {
-    theme: theme,
-    onClick: savePerms
-  }, /*#__PURE__*/React.createElement(Check, {
-    size: 16
-  }), t("savePermissions")), permsSaved && /*#__PURE__*/React.createElement(Badge, {
-    theme: theme,
-    tone: "success",
-    text: t("savedSuccessfully2")
-  }))), isManager && /*#__PURE__*/React.createElement("div", {
     className: "rounded-2xl p-5",
     style: {
       background: theme.surface,
