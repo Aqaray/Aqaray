@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.10";
+const APP_VERSION = "1.26.11";
 const THEMES = {
   orange: {
     name: {
@@ -1701,6 +1701,10 @@ const T = {
   noPermission: {
     ar: "ما عندك صلاحية لهذا الإجراء",
     en: "You don't have permission for this action"
+  },
+  userSaveFailed: {
+    ar: "فشل حفظ المستخدم",
+    en: "Failed to save user"
   },
   tooManyAttempts: {
     ar: "محاولات كثيرة خاطئة، انتظر شوي",
@@ -9122,7 +9126,7 @@ function UsersScreen({
       setShowModal(false);
       setEditing(null);
     } catch (e) {
-      notify(e.message === "Forbidden: manager only" ? t("noPermission") : t("noData"));
+      notify(e.message === "Forbidden: manager only" ? t("noPermission") : `${t("userSaveFailed")}: ${e.message || t("noData")}`);
     } finally {
       setBusy(false);
     }
