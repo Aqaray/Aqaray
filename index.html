@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.13";
+const APP_VERSION = "1.26.15";
 const THEMES = {
   orange: {
     name: {
@@ -1670,6 +1670,14 @@ const T = {
     ar: "حفظ معلومات الشركة",
     en: "Save Company Info"
   },
+  systemStartDate: {
+    ar: "تاريخ بداية اعتماد النظام",
+    en: "System Start Date"
+  },
+  systemStartDateNote: {
+    ar: "لو رفعت عقود قديمة، حدد هذا التاريخ عشان البرنامج ما يولّد فواتير إيجار قبله لأي عقد — حتى لو تاريخ العقد أقدم. اتركه فاضي لو ما تحتاجه.",
+    en: "If you've uploaded legacy contracts, set this date so the system never generates rent invoices before it for any contract — even if the contract's own date is older. Leave empty if not needed."
+  },
   savedSuccessfully2: {
     ar: "تم الحفظ بنجاح",
     en: "Saved successfully"
@@ -1855,6 +1863,17 @@ function useT(lang) {
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// Displays an ISO date (YYYY-MM-DD) as DD-MM-YYYY. Never touches <input type="date">
+// values (those must stay ISO for the native picker to work) — only text display.
+function fmtDate(isoStr) {
+  if (!isoStr) return "";
+  const s = String(isoStr).slice(0, 10);
+  const parts = s.split("-");
+  if (parts.length !== 3) return s;
+  const [y, m, d] = parts;
+  return `${d}-${m}-${y}`;
+}
 const monthKey = d => (d || todayISO()).slice(0, 7);
 
 // Once the tenant's second month of rent has been invoiced, the contract's core terms
@@ -2008,7 +2027,7 @@ function monthKeysBetween(startDateStr, endDateStr) {
 // Builds a debit/credit ledger for a tenant across all their contracts.
 // Debits: deposit due (once per contract) + monthly rent due (each elapsed month).
 // Credits: all actual payments received (any revenue linked to their contracts).
-function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustments) {
+function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustments, systemStartDate) {
   const today = todayISO();
   const u = units.find(x => x.id === contract.unitId);
   const unitLabel = u ? u.unitNo : "";
@@ -2043,11 +2062,14 @@ function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustme
       sortKey: (contract.startDate || today) + "-a00"
     });
   }
-  if (contract.startDate && Number(contract.monthlyRent) > 0) {
+  // Never generate rent-due months before the office's configured "system start date" (for legacy
+  // contracts entered with an older real start date, so we don't retroactively bill pre-onboarding months).
+  const rentStartDate = systemStartDate && systemStartDate > (contract.startDate || "") ? systemStartDate : contract.startDate;
+  if (rentStartDate && Number(contract.monthlyRent) > 0) {
     let boundary = contract.endDate || today;
     if (contract.status === "terminated" && contract.terminationDate) boundary = contract.terminationDate;
     const endBound = boundary < today ? boundary : today; // never compute rent due beyond today, nor beyond the contract's actual end/termination date
-    const months = monthKeysBetween(contract.startDate, endBound < contract.startDate ? contract.startDate : endBound);
+    const months = monthKeysBetween(rentStartDate, endBound < rentStartDate ? rentStartDate : endBound);
     months.forEach(mk => {
       rentEntries.push({
         date: `${mk}-01`,
@@ -2424,7 +2446,8 @@ const TABLES = {
       bank_name: c.bankName || null,
       iban: c.iban || null,
       account_holder: c.accountHolder || null,
-      swift_bic: c.swiftBic || null
+      swift_bic: c.swiftBic || null,
+      system_start_date: c.systemStartDate || null
     }),
     toJs: r => ({
       id: r.id,
@@ -2433,7 +2456,8 @@ const TABLES = {
       bankName: r.bank_name,
       iban: r.iban,
       accountHolder: r.account_holder,
-      swiftBic: r.swift_bic
+      swiftBic: r.swift_bic,
+      systemStartDate: r.system_start_date
     })
   },
   auditLog: {
@@ -2651,7 +2675,7 @@ const ROLE_PERMS = {
     },
     contracts: {
       add: true,
-      edit: false,
+      edit: true,
       delete: false
     },
     revenues: {
@@ -3170,7 +3194,7 @@ function printDefaultDocument({
         </div>
       </div>
       <h2 style="margin:0 0 4px 0;font-size:16px;">${title2(docType, t)}</h2>
-      <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${docType === "receipt" ? t("receiptNo") : t("invoiceNo")}: ${esc(docNo || "—")} &nbsp;|&nbsp; ${t("date")}: ${esc(date)}</p>
+      <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${docType === "receipt" ? t("receiptNo") : t("invoiceNo")}: ${esc(docNo || "—")} &nbsp;|&nbsp; ${t("date")}: ${esc(fmtDate(date))}</p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         ${rowsHtml}
       </table>
@@ -3987,7 +4011,8 @@ function Dashboard(props) {
     expenses,
     depositSettlements,
     elecSettlements,
-    balanceAdjustments
+    balanceAdjustments,
+    companyInfo
   } = props;
   const [propFilter, setPropFilter] = useState("all");
   const [alertsDismissed, setAlertsDismissed] = useState(false);
@@ -4017,9 +4042,11 @@ function Dashboard(props) {
     c,
     days: daysBetween(c.endDate, todayISO())
   })).filter(x => x.days >= 0 && x.days <= 30).sort((a, b) => a.days - b.days);
+  const systemStartDate = companyInfo[0] && companyInfo[0].systemStartDate || null;
   const overdue = [];
   activeContracts.forEach(c => {
-    const start = new Date(c.startDate);
+    const effectiveStart = systemStartDate && systemStartDate > (c.startDate || "") ? systemStartDate : c.startDate;
+    const start = new Date(effectiveStart);
     const now = new Date();
     let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
     while (cursor <= now) {
@@ -4747,7 +4774,8 @@ function TenantsScreen(props) {
     setTenantFilePrefill,
     canDo,
     balanceAdjustments,
-    updBalanceAdjustments
+    updBalanceAdjustments,
+    companyInfo
   } = props;
   const {
     confirm,
@@ -4844,7 +4872,7 @@ function TenantsScreen(props) {
       const finalElecBalance = elecChain.length ? elecChain[elecChain.length - 1].resultingBalance : oldElecOpening;
       const carriedElecDebit = -finalElecBalance; // convert back to our positive=debit convention
       // Carry over the rent balance
-      const oldRentLedger = buildContractLedger(renewingFrom, units, revenues, lang, t, balanceAdjustments);
+      const oldRentLedger = buildContractLedger(renewingFrom, units, revenues, lang, t, balanceAdjustments, companyInfo[0] && companyInfo[0].systemStartDate || null);
       const finalRentBalance = oldRentLedger.rent.length ? oldRentLedger.rent[oldRentLedger.rent.length - 1].balance : 0;
       const carryOverEntries = [];
       if (carriedElecDebit !== 0) {
@@ -5456,7 +5484,8 @@ function TenantFileModal({
   onHardDeleteContract,
   canDo,
   onUndoTermination,
-  balanceAdjustments
+  balanceAdjustments,
+  companyInfo
 }) {
   const {
     notify,
@@ -5509,7 +5538,7 @@ function TenantFileModal({
     const lastElec = elecChain.length ? elecChain[elecChain.length - 1] : null;
     const [reportView, setReportView] = useState(null); // null | 'ledger' | 'electricity'
 
-    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t, balanceAdjustments), [c, units, revenues, lang, balanceAdjustments]);
+    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t, balanceAdjustments, companyInfo?.[0] && companyInfo[0].systemStartDate || null), [c, units, revenues, lang, balanceAdjustments, companyInfo]);
     const elecLedger = useMemo(() => buildElectricityLedger(c, elecSettlements, lang, t, balanceAdjustments), [c, elecSettlements, lang, balanceAdjustments]);
     const [viewingDoc, setViewingDoc] = useState(null);
     const renderGroupTable = (rows, groupTitle) => /*#__PURE__*/React.createElement("div", {
@@ -5558,7 +5587,7 @@ function TenantFileModal({
       }
     }, e.doc?.docNo || "—"), /*#__PURE__*/React.createElement("td", {
       className: "p-2"
-    }, e.date), /*#__PURE__*/React.createElement("td", {
+    }, fmtDate(e.date)), /*#__PURE__*/React.createElement("td", {
       className: "p-2"
     }, e.desc), /*#__PURE__*/React.createElement("td", {
       className: "p-2",
@@ -5582,7 +5611,7 @@ function TenantFileModal({
       if (reportView === "ledger") {
         const section = (rows, title) => {
           const rowsHtml = rows.map(e => `
-            <tr><td>${esc(e.date)}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
+            <tr><td>${esc(fmtDate(e.date))}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
           const finalBalance = rows.length ? rows[rows.length - 1].balance : 0;
           return `
             <h2 style="font-size:14px;margin-top:18px;">${esc(title)}</h2>
@@ -5600,7 +5629,7 @@ function TenantFileModal({
         printHtml(t("financialReport"), html, theme);
       } else if (reportView === "electricity") {
         const rows = elecLedger.map(e => `
-          <tr><td>${esc(e.date)}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
+          <tr><td>${esc(fmtDate(e.date))}</td><td>${esc(e.desc)}</td><td>${e.debit ? fmtMoney(e.debit) : ""}</td><td>${e.credit ? fmtMoney(e.credit) : ""}</td><td>${fmtSigned(e.balance)}</td></tr>`).join("");
         const finalBalance = elecLedger.length ? elecLedger[elecLedger.length - 1].balance : 0;
         const html = `
           <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
@@ -5637,7 +5666,7 @@ function TenantFileModal({
       style: {
         color: theme.textSoft
       }
-    }, c.startDate, " → ", c.endDate, " · ", t("monthlyRent"), ": ", fmtMoney(c.monthlyRent)), lastElec && /*#__PURE__*/React.createElement("p", {
+    }, fmtDate(c.startDate), " → ", fmtDate(c.endDate), " · ", t("monthlyRent"), ": ", fmtMoney(c.monthlyRent)), lastElec && /*#__PURE__*/React.createElement("p", {
       className: "text-xs mt-1"
     }, /*#__PURE__*/React.createElement(Zap, {
       size: 11,
@@ -6220,7 +6249,7 @@ function RevenuesScreen(props) {
       }
     }, r.docNo || "—"), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
-    }, r.date), /*#__PURE__*/React.createElement("td", {
+    }, fmtDate(r.date)), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
     }, r.type === "rent" ? t("rentRevenue") : t("otherRevenue"), " ", suspended && /*#__PURE__*/React.createElement(Badge, {
       theme: theme,
@@ -6773,7 +6802,7 @@ function ExpensesScreen(props) {
       }
     }, e.docNo || "—"), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
-    }, e.date), /*#__PURE__*/React.createElement("td", {
+    }, fmtDate(e.date)), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
     }, p?.buildingName, u ? " — " + u.unitNo : ""), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
@@ -8128,7 +8157,7 @@ function FormsScreen(props) {
       lang,
       t,
       companyInfo,
-      rows: [[t("tenantName"), tn?.name || ""], [t("nationality"), tn?.nationality || ""], [t("idNo"), tn?.idNo || tn?.passportNo || ""], [t("phone"), tn?.phone || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("startDate"), c.startDate], [t("endDate"), c.endDate], [t("monthlyRent"), fmtMoney(c.monthlyRent) + " BHD"], [t("depositAmount"), fmtMoney(c.depositAmount) + " BHD"], [t("electricityLimit"), fmtMoney(c.electricityLimit) + " BHD"]]
+      rows: [[t("tenantName"), tn?.name || ""], [t("nationality"), tn?.nationality || ""], [t("idNo"), tn?.idNo || tn?.passportNo || ""], [t("phone"), tn?.phone || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("startDate"), fmtDate(c.startDate)], [t("endDate"), fmtDate(c.endDate)], [t("monthlyRent"), fmtMoney(c.monthlyRent) + " BHD"], [t("depositAmount"), fmtMoney(c.depositAmount) + " BHD"], [t("electricityLimit"), fmtMoney(c.electricityLimit) + " BHD"]]
     });
   };
   const generateTerminationDoc = async () => {
@@ -8144,7 +8173,7 @@ function FormsScreen(props) {
       lang,
       t,
       companyInfo,
-      rows: [[t("tenantName"), tn?.name || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("terminationDate"), c.terminationDate || todayISO()], [t("terminationReason"), c.terminationReason || ""]]
+      rows: [[t("tenantName"), tn?.name || ""], [t("properties"), `${p?.buildingName || ""} — ${u?.unitNo || ""}`], [t("terminationDate"), fmtDate(c.terminationDate || todayISO())], [t("terminationReason"), c.terminationReason || ""]]
     });
   };
   const terminatedContracts = contracts.filter(c => c.status === "terminated" || c.status === "expired");
@@ -8336,7 +8365,7 @@ function ReportsScreen(props) {
     const rows = ledger.map(r => {
       const u = units.find(x => x.id === r.unitId);
       const p = u ? properties.find(x => x.id === u.propertyId) : properties.find(x => x.id === r.propertyId);
-      return `<tr><td>${esc(r.date)}</td><td>${r.kind === "revenue" ? t("revenues") : t("expenses")}</td><td>${esc(p?.buildingName)} ${u ? "— " + esc(u.unitNo) : ""}</td><td>${fmtMoney(r.amount)}</td></tr>`;
+      return `<tr><td>${esc(fmtDate(r.date))}</td><td>${r.kind === "revenue" ? t("revenues") : t("expenses")}</td><td>${esc(p?.buildingName)} ${u ? "— " + esc(u.unitNo) : ""}</td><td>${fmtMoney(r.amount)}</td></tr>`;
     }).join("");
     const html = `
       <h1>${lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</h1>
@@ -8470,7 +8499,7 @@ function ReportsScreen(props) {
       }
     }, /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
-    }, r.date), /*#__PURE__*/React.createElement("td", {
+    }, fmtDate(r.date)), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
     }, r.kind === "revenue" ? t("revenues") : t("expenses")), /*#__PURE__*/React.createElement("td", {
       className: "p-2.5"
@@ -8617,7 +8646,7 @@ function OwnerSettlementScreen(props) {
           <p style="margin:0;font-size:18px;font-weight:800;color:${gray.primaryDark};">${ci.companyName ? esc(ci.companyName) : lang === "ar" ? "عقاري | Aqaray" : "Aqaray | عقاري"}</p>
         </div>
         <h2 style="margin:0 0 4px 0;font-size:16px;">${t("ownerSettlementTitle")} — ${esc(p2?.buildingName || propertyLabel)}</h2>
-        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${esc(periodFrom)} → ${esc(periodTo)}</p>
+        <p style="margin:0 0 14px 0;font-size:12px;color:${gray.textSoft};">${t("period")}: ${esc(fmtDate(periodFrom))} → ${esc(fmtDate(periodTo))}</p>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("revenueBreakdown")}</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">${revRowsHtml}</table>
         <p style="font-weight:700;margin:14px 0 4px;font-size:13px;">${t("expenseBreakdown")}</p>
@@ -8853,7 +8882,7 @@ function OwnerSettlementScreen(props) {
       className: "p-3.5 flex items-center justify-between flex-wrap gap-2"
     }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
       className: "font-medium text-sm"
-    }, p?.buildingName, " — ", s.from, " → ", s.to), /*#__PURE__*/React.createElement("p", {
+    }, p?.buildingName, " — ", fmtDate(s.from), " → ", fmtDate(s.to)), /*#__PURE__*/React.createElement("p", {
       className: "text-xs",
       style: {
         color: theme.textSoft
@@ -9441,7 +9470,7 @@ function BalanceAdjustmentsScreen(props) {
     style: {
       color: theme.textSoft
     }
-  }, b.date, " ", b.reason ? "· " + b.reason : "", " ", b.status === "suspended" ? `· ${t("suspended")}` : "")), /*#__PURE__*/React.createElement("div", {
+  }, fmtDate(b.date), " ", b.reason ? "· " + b.reason : "", " ", b.status === "suspended" ? `· ${t("suspended")}` : "")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -9616,7 +9645,8 @@ function SettingsScreen({
     bankName: existingCompanyInfo.bankName || "",
     iban: existingCompanyInfo.iban || "",
     accountHolder: existingCompanyInfo.accountHolder || "",
-    swiftBic: existingCompanyInfo.swiftBic || ""
+    swiftBic: existingCompanyInfo.swiftBic || "",
+    systemStartDate: existingCompanyInfo.systemStartDate || ""
   });
   const [companySaved, setCompanySaved] = useState(false);
   const [lastBackupDate, setLastBackupDate] = useState(() => {
@@ -9639,7 +9669,8 @@ function SettingsScreen({
         bankName: companyInfo[0].bankName || "",
         iban: companyInfo[0].iban || "",
         accountHolder: companyInfo[0].accountHolder || "",
-        swiftBic: companyInfo[0].swiftBic || ""
+        swiftBic: companyInfo[0].swiftBic || "",
+        systemStartDate: companyInfo[0].systemStartDate || ""
       });
     }
   }, [companyInfo]);
@@ -10278,7 +10309,19 @@ function SettingsScreen({
     style: inputStyle(theme),
     value: companyForm.swiftBic,
     onChange: setCF("swiftBic")
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: t("systemStartDate")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    style: inputStyle(theme),
+    value: companyForm.systemStartDate,
+    onChange: setCF("systemStartDate")
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mb-2",
+    style: {
+      color: theme.textSoft
+    }
+  }, t("systemStartDateNote")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
