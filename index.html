@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.15";
+const APP_VERSION = "1.26.16";
 const THEMES = {
   orange: {
     name: {
@@ -1677,6 +1677,10 @@ const T = {
   systemStartDateNote: {
     ar: "لو رفعت عقود قديمة، حدد هذا التاريخ عشان البرنامج ما يولّد فواتير إيجار قبله لأي عقد — حتى لو تاريخ العقد أقدم. اتركه فاضي لو ما تحتاجه.",
     en: "If you've uploaded legacy contracts, set this date so the system never generates rent invoices before it for any contract — even if the contract's own date is older. Leave empty if not needed."
+  },
+  hasAdjustments: {
+    ar: "عليه تعديلات",
+    en: "Has Adjustments"
   },
   savedSuccessfully2: {
     ar: "تم الحفظ بنجاح",
@@ -9355,7 +9359,8 @@ function BalanceAdjustmentsScreen(props) {
     const tn = tenants.find(x => x.id === c.tenantId);
     const u = units.find(x => x.id === c.unitId);
     const p = u ? properties.find(x => x.id === u.propertyId) : null;
-    return `${tn?.name || ""} — ${p?.buildingName || ""} ${u?.unitNo || ""} (${c.contractNo || ""})`;
+    const hasActiveAdjustment = balanceAdjustments.some(b => b.contractId === c.id && b.status === "active");
+    return `${tn?.name || ""} — ${p?.buildingName || ""} ${u?.unitNo || ""} (${c.contractNo || ""})${hasActiveAdjustment ? ` ⚠️ ${t("hasAdjustments")}` : ""}`;
   };
   const forContract = balanceAdjustments.filter(b => b.contractId === contractId).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const activeRentBalance = forContract.filter(b => b.type === "rent" && b.status === "active").reduce((s, b) => s + Number(b.amount || 0), 0);
