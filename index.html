@@ -17,6 +17,7 @@
 <body>
 <div id="root"></div>
 <script>
+
 const { useState, useEffect, useMemo, useCallback, useContext } = React;
 
 /* ============================== ICONS (self-contained, no external deps) ============================== */
@@ -1919,25 +1920,7 @@ function depositPaidAmount(contractId, revenues) {
 }
 function generateDocNo(prefix, existingDocNos) {
   const yy = new Date().getFullYear().toString().slice(-2);
-  const pattern = new RegExp(`^${prefix}-${yy}-(\\d+)<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>عقاري | Aqaray</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  body { margin: 0; }
-  * { box-sizing: border-box; }
-</style>
-</head>
-<body>
-<div id="root"></div>
-);
+  const pattern = new RegExp(`^${prefix}-${yy}-(\\d+)$`);
   let maxSeq = 0;
   (existingDocNos || []).forEach(docNo => {
     const m = pattern.exec(docNo || "");
