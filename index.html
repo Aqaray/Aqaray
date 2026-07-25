@@ -251,7 +251,7 @@ const CircleDollarSign = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PUR
 
 /* ============================== STATIC DATA ============================== */
 
-const APP_VERSION = "1.26.16";
+const APP_VERSION = "1.26.17";
 const THEMES = {
   orange: {
     name: {
@@ -1045,6 +1045,14 @@ const T = {
   returnedAmount: {
     ar: "المبلغ المرجّع",
     en: "Returned Amount"
+  },
+  towardRentAmount: {
+    ar: "مبلغ للإيجار المتأخر",
+    en: "Amount Toward Rent Arrears"
+  },
+  totalMustMatch: {
+    ar: "الإجمالي لازم يطابق المبلغ المدفوع",
+    en: "Total must match the paid amount"
   },
   depositEditNote: {
     ar: "ملاحظة: تعديل التسوية هنا يصحح السجل نفسه بس، ما يعدّل تلقائياً أي إيراد سابق كان اتسجل وقت التسوية الأصلية (مثل تعويض ضرر).",
@@ -1911,7 +1919,25 @@ function depositPaidAmount(contractId, revenues) {
 }
 function generateDocNo(prefix, existingDocNos) {
   const yy = new Date().getFullYear().toString().slice(-2);
-  const pattern = new RegExp(`^${prefix}-${yy}-(\\d+)$`);
+  const pattern = new RegExp(`^${prefix}-${yy}-(\\d+)<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>عقاري | Aqaray</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { margin: 0; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+);
   let maxSeq = 0;
   (existingDocNos || []).forEach(docNo => {
     const m = pattern.exec(docNo || "");
@@ -2031,7 +2057,7 @@ function monthKeysBetween(startDateStr, endDateStr) {
 // Builds a debit/credit ledger for a tenant across all their contracts.
 // Debits: deposit due (once per contract) + monthly rent due (each elapsed month).
 // Credits: all actual payments received (any revenue linked to their contracts).
-function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustments, systemStartDate) {
+function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustments, systemStartDate, depositSettlements) {
   const today = todayISO();
   const u = units.find(x => x.id === contract.unitId);
   const unitLabel = u ? u.unitNo : "";
@@ -2053,6 +2079,20 @@ function buildContractLedger(contract, units, revenues, lang, t, balanceAdjustme
       credit: Number(r.amount || 0),
       sortKey: (r.date || today) + "-b",
       doc: r
+    });
+  });
+  (depositSettlements || []).filter(d => d.contractId === contract.id).forEach(d => {
+    const parts = [];
+    if (Number(d.rentAmount) > 0) parts.push(`${t("towardRentAmount")}: ${fmtMoney(d.rentAmount)}`);
+    if (Number(d.deductedAmount) > 0) parts.push(`${t("deductedAmount")}: ${fmtMoney(d.deductedAmount)}`);
+    if (Number(d.returnedAmount) > 0) parts.push(`${t("returnedAmount")}: ${fmtMoney(d.returnedAmount)}`);
+    depositEntries.push({
+      date: d.date || today,
+      desc: `${t("settleDeposit")} (${parts.join(" · ")})`,
+      debit: 0,
+      credit: 0,
+      sortKey: (d.date || today) + "-c",
+      doc: d
     });
   });
   const rentEntries = [];
@@ -2408,6 +2448,7 @@ const TABLES = {
       deposit_amount: d.depositAmount || 0,
       returned_amount: d.returnedAmount || 0,
       deducted_amount: d.deductedAmount || 0,
+      rent_amount: d.rentAmount || 0,
       deduction_reason: d.deductionReason || null,
       method: d.method || null,
       doc_no: d.docNo || null
@@ -2419,6 +2460,7 @@ const TABLES = {
       depositAmount: r.deposit_amount,
       returnedAmount: r.returned_amount,
       deductedAmount: r.deducted_amount,
+      rentAmount: r.rent_amount,
       deductionReason: r.deduction_reason,
       method: r.method,
       docNo: r.doc_no
@@ -4876,7 +4918,7 @@ function TenantsScreen(props) {
       const finalElecBalance = elecChain.length ? elecChain[elecChain.length - 1].resultingBalance : oldElecOpening;
       const carriedElecDebit = -finalElecBalance; // convert back to our positive=debit convention
       // Carry over the rent balance
-      const oldRentLedger = buildContractLedger(renewingFrom, units, revenues, lang, t, balanceAdjustments, companyInfo[0] && companyInfo[0].systemStartDate || null);
+      const oldRentLedger = buildContractLedger(renewingFrom, units, revenues, lang, t, balanceAdjustments, companyInfo[0] && companyInfo[0].systemStartDate || null, depositSettlements);
       const finalRentBalance = oldRentLedger.rent.length ? oldRentLedger.rent[oldRentLedger.rent.length - 1].balance : 0;
       const carryOverEntries = [];
       if (carriedElecDebit !== 0) {
@@ -5542,7 +5584,7 @@ function TenantFileModal({
     const lastElec = elecChain.length ? elecChain[elecChain.length - 1] : null;
     const [reportView, setReportView] = useState(null); // null | 'ledger' | 'electricity'
 
-    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t, balanceAdjustments, companyInfo?.[0] && companyInfo[0].systemStartDate || null), [c, units, revenues, lang, balanceAdjustments, companyInfo]);
+    const contractLedger = useMemo(() => buildContractLedger(c, units, revenues, lang, t, balanceAdjustments, companyInfo?.[0] && companyInfo[0].systemStartDate || null, depositSettlements), [c, units, revenues, lang, balanceAdjustments, companyInfo, depositSettlements]);
     const elecLedger = useMemo(() => buildElectricityLedger(c, elecSettlements, lang, t, balanceAdjustments), [c, elecSettlements, lang, balanceAdjustments]);
     const [viewingDoc, setViewingDoc] = useState(null);
     const renderGroupTable = (rows, groupTitle) => /*#__PURE__*/React.createElement("div", {
@@ -7699,7 +7741,22 @@ function DepositsScreen(props) {
       docNo: nextDocNo("DEP", prev, todayISO()),
       ...data
     }]);
-    if (data.method === "deducted" && data.deductedAmount > 0) {
+    if (data.rentAmount > 0) {
+      updRevenues(prev => [...prev, {
+        id: uid(),
+        type: "rent",
+        contractId: contract.id,
+        unitId: contract.unitId,
+        month: monthKey(),
+        amount: Number(data.rentAmount),
+        date: todayISO(),
+        paymentMethod: "cash",
+        notes: t("convertToRent"),
+        addedBy: currentUser.name,
+        docNo: nextDocNo("RVN", revenues, todayISO())
+      }]);
+    }
+    if (data.deductedAmount > 0) {
       updRevenues(prev => [...prev, {
         id: uid(),
         type: "other",
@@ -7713,21 +7770,6 @@ function DepositsScreen(props) {
         docNo: nextDocNo("RVN", revenues, todayISO()),
         notes: data.deductionReason || t("deducted"),
         addedBy: currentUser.name
-      }]);
-    }
-    if (data.method === "convert_to_rent") {
-      updRevenues(prev => [...prev, {
-        id: uid(),
-        type: "rent",
-        contractId: contract.id,
-        unitId: contract.unitId,
-        month: monthKey(),
-        amount: data.returnedAmount + data.deductedAmount,
-        date: todayISO(),
-        paymentMethod: "cash",
-        notes: t("convertToRent"),
-        addedBy: currentUser.name,
-        docNo: nextDocNo("RVN", revenues, todayISO())
       }]);
     }
     setSettling(null);
@@ -7952,23 +7994,18 @@ function DepositSettleModal({
   onClose,
   onSave
 }) {
-  const [method, setMethod] = useState("full_return");
+  const [rentAmount, setRentAmount] = useState(0);
   const [deductedAmount, setDeductedAmount] = useState(0);
   const [deductionReason, setDeductionReason] = useState("");
+  const [returnedAmount, setReturnedAmount] = useState(paidAmount);
+  const total = Number(rentAmount || 0) + Number(deductedAmount || 0) + Number(returnedAmount || 0);
+  const diff = Math.round((paidAmount - total) * 1000) / 1000;
   const submit = () => {
-    if (method === "full_return") onSave({
-      method,
-      returnedAmount: paidAmount,
-      deductedAmount: 0
-    });else if (method === "deducted") onSave({
-      method,
-      deductedAmount: Number(deductedAmount),
-      returnedAmount: paidAmount - Number(deductedAmount),
-      deductionReason
-    });else onSave({
-      method,
-      returnedAmount: 0,
-      deductedAmount: 0
+    onSave({
+      rentAmount: Number(rentAmount || 0),
+      deductedAmount: Number(deductedAmount || 0),
+      deductionReason,
+      returnedAmount: Number(returnedAmount || 0)
     });
   };
   return /*#__PURE__*/React.createElement(Modal, {
@@ -7980,44 +8017,50 @@ function DepositSettleModal({
     style: {
       color: theme.textSoft
     }
-  }, t("depositPaid"), ": ", fmtMoney(paidAmount)), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 mb-3 text-sm"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
+  }, t("depositPaid"), ": ", fmtMoney(paidAmount)),
+  /*#__PURE__*/React.createElement(Field, {
+    label: t("towardRentAmount")
   }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "full_return",
-    onChange: () => setMethod("full_return")
-  }), t("fullReturn")), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "deducted",
-    onChange: () => setMethod("deducted")
-  }), t("deducted")), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "convert_to_rent",
-    onChange: () => setMethod("convert_to_rent")
-  }), t("convertToRent"))), method === "deducted" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Field, {
+    type: "number",
+    style: inputStyle(theme),
+    value: rentAmount,
+    onChange: e => setRentAmount(e.target.value)
+  })),
+  /*#__PURE__*/React.createElement(Field, {
     label: t("deductedAmount")
   }, /*#__PURE__*/React.createElement("input", {
     type: "number",
     style: inputStyle(theme),
     value: deductedAmount,
     onChange: e => setDeductedAmount(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
+  })),
+  deductedAmount > 0 && /*#__PURE__*/React.createElement(Field, {
     label: t("deductionReason")
   }, /*#__PURE__*/React.createElement("input", {
     style: inputStyle(theme),
     value: deductionReason,
     onChange: e => setDeductionReason(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
+  })),
+  /*#__PURE__*/React.createElement(Field, {
+    label: t("returnedAmount")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: returnedAmount,
+    onChange: e => setReturnedAmount(e.target.value)
+  })),
+  /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mb-2",
+    style: {
+      color: diff === 0 ? theme.success : theme.danger
+    }
+  }, t("totalMustMatch"), ": ", fmtMoney(total), " / ", fmtMoney(paidAmount), diff !== 0 ? ` (${t("remaining")}: ${fmtMoney(diff)})` : ""),
+  /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-3"
   }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
-    onClick: submit
+    onClick: submit,
+    disabled: diff !== 0
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
   }), t("save")), /*#__PURE__*/React.createElement(Btn, {
@@ -8033,15 +8076,18 @@ function DepositSettleEditModal({
   onClose,
   onSave
 }) {
-  const [method, setMethod] = useState(settlement.method || "full_return");
+  const totalPaid = Number(settlement.rentAmount || 0) + Number(settlement.deductedAmount || 0) + Number(settlement.returnedAmount || 0);
+  const [rentAmount, setRentAmount] = useState(settlement.rentAmount || 0);
   const [returnedAmount, setReturnedAmount] = useState(settlement.returnedAmount || 0);
   const [deductedAmount, setDeductedAmount] = useState(settlement.deductedAmount || 0);
   const [deductionReason, setDeductionReason] = useState(settlement.deductionReason || "");
+  const total = Number(rentAmount || 0) + Number(deductedAmount || 0) + Number(returnedAmount || 0);
+  const diff = Math.round((totalPaid - total) * 1000) / 1000;
   const submit = () => {
     onSave({
-      method,
-      returnedAmount: Number(returnedAmount),
-      deductedAmount: Number(deductedAmount),
+      rentAmount: Number(rentAmount || 0),
+      returnedAmount: Number(returnedAmount || 0),
+      deductedAmount: Number(deductedAmount || 0),
       deductionReason
     });
   };
@@ -8049,47 +8095,45 @@ function DepositSettleEditModal({
     theme: theme,
     title: `${t("edit")} — ${t("settleDeposit")}`,
     onClose: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 mb-3 text-sm"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "full_return",
-    onChange: () => setMethod("full_return")
-  }), t("fullReturn")), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "deducted",
-    onChange: () => setMethod("deducted")
-  }), t("deducted")), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "radio",
-    checked: method === "convert_to_rent",
-    onChange: () => setMethod("convert_to_rent")
-  }), t("convertToRent"))), /*#__PURE__*/React.createElement(Field, {
-    label: t("returnedAmount")
+  },
+  /*#__PURE__*/React.createElement(Field, {
+    label: t("towardRentAmount")
   }, /*#__PURE__*/React.createElement("input", {
     type: "number",
     style: inputStyle(theme),
-    value: returnedAmount,
-    onChange: e => setReturnedAmount(e.target.value)
-  })), method === "deducted" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Field, {
+    value: rentAmount,
+    onChange: e => setRentAmount(e.target.value)
+  })),
+  /*#__PURE__*/React.createElement(Field, {
     label: t("deductedAmount")
   }, /*#__PURE__*/React.createElement("input", {
     type: "number",
     style: inputStyle(theme),
     value: deductedAmount,
     onChange: e => setDeductedAmount(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
+  })),
+  deductedAmount > 0 && /*#__PURE__*/React.createElement(Field, {
     label: t("deductionReason")
   }, /*#__PURE__*/React.createElement("input", {
     style: inputStyle(theme),
     value: deductionReason,
     onChange: e => setDeductionReason(e.target.value)
-  }))), /*#__PURE__*/React.createElement("p", {
+  })),
+  /*#__PURE__*/React.createElement(Field, {
+    label: t("returnedAmount")
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: inputStyle(theme),
+    value: returnedAmount,
+    onChange: e => setReturnedAmount(e.target.value)
+  })),
+  /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mb-2",
+    style: {
+      color: diff === 0 ? theme.success : theme.danger
+    }
+  }, t("totalMustMatch"), ": ", fmtMoney(total), " / ", fmtMoney(totalPaid), diff !== 0 ? ` (${t("remaining")}: ${fmtMoney(diff)})` : ""),
+  /*#__PURE__*/React.createElement("p", {
     className: "text-xs mt-2",
     style: {
       color: theme.textSoft
@@ -8098,7 +8142,8 @@ function DepositSettleEditModal({
     className: "flex gap-2 mt-3"
   }, /*#__PURE__*/React.createElement(Btn, {
     theme: theme,
-    onClick: submit
+    onClick: submit,
+    disabled: diff !== 0
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
   }), t("saveChanges")), /*#__PURE__*/React.createElement(Btn, {
